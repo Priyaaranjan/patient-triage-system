@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Profile - CareInsight AI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .table th {
+            background-color: #f8f9fa;
+        }
+        .badge-available {
+            background-color: #28a745;
+            color: white;
+        }
+        .badge-unavailable {
+            background-color: #dc3545;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/dashboard">
+                <i class="bi bi-heart-pulse"></i> CareInsight AI
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <span class="nav-link">
+                            <i class="bi bi-building"></i> {{ hospital.hospital_name }}
+                        </span>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/dashboard">
+                            <i class="bi bi-speedometer2"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/patient_history">
+                            <i class="bi bi-clock-history"></i> History
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/logout">
+                            <i class="bi bi-box-arrow-right"></i> Logout
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        <!-- Header -->
+        <div class="stat-card mb-4">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h2 class="mb-0"><i class="bi bi-building"></i> Hospital Profile</h2>
+                    <p class="mb-0 opacity-75">View and manage hospital resources</p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <span class="badge bg-light text-dark p-3">
+                        <i class="bi bi-calendar"></i> <span id="currentDate"></span>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hospital Information & Resources -->
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="bi bi-info-circle"></i> Hospital Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-hover">
+                            <tr>
+                                <th>Hospital Name:</th>
+                                <td><strong>{{ hospital.hospital_name }}</strong></td>
+                            </tr>
+                            <tr>
+                                <th>Hospital ID:</th>
+                                <td><code>{{ hospital.hospital_id }}</code></td>
+                            </tr>
+                            <tr>
+                                <th>Location:</th>
+                                <td>{{ hospital.location }}</td>
+                            </tr>
+                            <tr>
+                                <th>Area Type:</th>
+                                <td>
+                                    {% if hospital.area_type == 'urban' %}
+                                        <span class="badge bg-info">Urban</span>
+                                    {% else %}
+                                        <span class="badge bg-success">Rural</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Hospital Type:</th>
+                                <td>
+                                    {% if hospital.hospital_type == 'government' %}
+                                        <span class="badge bg-primary">Government</span>
+                                    {% else %}
+                                        <span class="badge bg-warning">Private</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <tr>
+                                <th>Contact:</th>
+                                <td><i class="bi bi-telephone"></i> {{ hospital.contact_number }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card mb-4">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Resources</h5>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-hover">
+                            <tr>
+                                <th><i class="bi bi-person-badge"></i> Total Doctors:</th>
+                                <td><h4>{{ hospital.total_doctors or 0 }}</h4></td>
+                            </tr>
+                            <tr>
+                                <th><i class="bi bi-person"></i> Nurses:</th>
+                                <td><h4>{{ hospital.nurses_count or 0 }}</h4></td>
+                            </tr>
+                            <tr>
+                                <th><i class="bi bi-person-workspace"></i> Ward Boys:</th>
+                                <td><h4>{{ hospital.wardboys_count or 0 }}</h4></td>
+                            </tr>
+                            <tr>
+                                <th><i class="bi bi-bed"></i> Total Beds:</th>
+                                <td><h4>{{ hospital.total_beds or 0 }}</h4></td>
+                            </tr>
+                            <tr>
+                                <th><i class="bi bi-bed-fill"></i> Available Beds:</th>
+                                <td><h4 class="text-success">{{ hospital.available_beds or 0 }}</h4></td>
+                            </tr>
+                            <tr>
+                                <th>Facilities:</th>
+                                <td>
+                                    {% if hospital.has_icu %}<span class="badge bg-danger me-1">ICU</span>{% endif %}
+                                    {% if hospital.has_emergency %}<span class="badge bg-warning me-1">Emergency</span>{% endif %}
+                                    {% if hospital.has_operation_theater %}<span class="badge bg-info me-1">OT</span>{% endif %}
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Row -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="bi bi-pie-chart"></i> Department Distribution</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="deptChart" style="height: 400px;"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header bg-warning text-white">
+                        <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Risk Distribution</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="riskChart" style="height: 400px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ambulance Fleet Status -->
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="mb-0"><i class="bi bi-truck"></i> Ambulance Fleet Status</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if ambulances and ambulances|length > 0 %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Vehicle</th>
+                                            <th>Status</th>
+                                            <th>Paramedics</th>
+                                            <th>Life Support</th>
+                                            <th>Est. Return</th>
+                                            <th>Destination</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for ambulance in ambulances %}
+                                        <tr>
+                                            <td><strong>{{ ambulance.vehicle_number }}</strong></td>
+                                            <td>
+                                                {% if ambulance.is_available %}
+                                                    <span class="badge bg-success">Available</span>
+                                                {% else %}
+                                                    <span class="badge bg-warning">In Use</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ ambulance.paramedic_count }}</td>
+                                            <td>
+                                                {% if ambulance.has_life_support %}
+                                                    <i class="bi bi-check-circle text-success"></i> Yes
+                                                {% else %}
+                                                    <i class="bi bi-x-circle text-danger"></i> No
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if ambulance.estimated_return_time %}
+                                                    {{ ambulance.estimated_return_time.strftime('%I:%M %p') }}
+                                                {% else %}
+                                                    <span class="text-muted">Now</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if ambulance.destination_hospital %}
+                                                    <small>{{ ambulance.destination_hospital }}</small>
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if ambulance.is_available %}
+                                                    <button class="btn btn-sm btn-primary" onclick="dispatchAmbulance({{ ambulance.id }})">
+                                                        <i class="bi bi-truck"></i> Dispatch
+                                                    </button>
+                                                {% else %}
+                                                    <button class="btn btn-sm btn-success" onclick="returnAmbulance({{ ambulance.id }})">
+                                                        <i class="bi bi-check-circle"></i> Return
+                                                    </button>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="text-center py-4">
+                                <i class="bi bi-truck fs-1 text-muted"></i>
+                                <p class="mt-2">No ambulances registered</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Doctor Availability by Department -->
+        <div class="row mt-4">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0"><i class="bi bi-person-badge"></i> Doctor Availability by Department</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if departments and departments|length > 0 %}
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Department</th>
+                                            <th>On Duty</th>
+                                            <th>Total</th>
+                                            <th>On Call</th>
+                                            <th>Next Available</th>
+                                            <th>Status</th>
+                                            <th>Last Updated</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for dept in departments %}
+                                        <tr>
+                                            <td><strong>{{ dept.name }}</strong></td>
+                                            <td>
+                                                <span class="badge {% if dept.doctors_on_duty > 0 %}bg-success{% else %}bg-secondary{% endif %}">
+                                                    {{ dept.doctors_on_duty }}
+                                                </span>
+                                            </td>
+                                            <td>{{ dept.total_doctors }}</td>
+                                            <td>{{ dept.on_call_doctors or 0 }}</td>
+                                            <td>
+                                                {% if dept.next_available_time %}
+                                                    {{ dept.next_available_time.strftime('%I:%M %p') }}
+                                                {% else %}
+                                                    <span class="text-muted">Now</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if dept.doctors_on_duty and dept.doctors_on_duty > 0 %}
+                                                    <span class="badge bg-success">Available</span>
+                                                {% else %}
+                                                    <span class="badge bg-danger">Unavailable</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <small class="text-muted">
+                                                    {% if dept.last_updated %}
+                                                        {{ dept.last_updated.strftime('%H:%M') }}
+                                                    {% else %}
+                                                        -
+                                                    {% endif %}
+                                                </small>
+                                            </td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <div class="text-center py-4">
+                                <i class="bi bi-person-badge fs-1 text-muted"></i>
+                                <p class="mt-2">No departments registered</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Update current date
+        function updateDate() {
+            const now = new Date();
+            const options = { 
+                timeZone: 'Asia/Kolkata',
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            };
+            document.getElementById('currentDate').innerHTML = now.toLocaleDateString('en-IN', options);
+        }
+        updateDate();
+
+        // Render charts
+        {% if dept_chart %}
+            var deptData = {{ dept_chart | safe }};
+            if (deptData && deptData.data) {
+                Plotly.newPlot('deptChart', deptData.data, deptData.layout || {});
+            } else {
+                document.getElementById('deptChart').innerHTML = `
+                    <div class="text-center py-5">
+                        <i class="bi bi-bar-chart fs-1 text-muted"></i>
+                        <p class="mt-2">No department data available</p>
+                    </div>
+                `;
+            }
+        {% else %}
+            document.getElementById('deptChart').innerHTML = `
+                <div class="text-center py-5">
+                    <i class="bi bi-bar-chart fs-1 text-muted"></i>
+                    <p class="mt-2">No department data available</p>
+                </div>
+            `;
+        {% endif %}
+
+        {% if risk_chart %}
+            var riskData = {{ risk_chart | safe }};
+            if (riskData && riskData.data) {
+                Plotly.newPlot('riskChart', riskData.data, riskData.layout || {});
+            } else {
+                document.getElementById('riskChart').innerHTML = `
+                    <div class="text-center py-5">
+                        <i class="bi bi-pie-chart fs-1 text-muted"></i>
+                        <p class="mt-2">No risk data available</p>
+                    </div>
+                `;
+            }
+        {% else %}
+            document.getElementById('riskChart').innerHTML = `
+                <div class="text-center py-5">
+                    <i class="bi bi-pie-chart fs-1 text-muted"></i>
+                    <p class="mt-2">No risk data available</p>
+                </div>
+            `;
+        {% endif %}
+
+        // Ambulance functions
+        function dispatchAmbulance(ambulanceId) {
+            if (!confirm('Dispatch this ambulance?')) return;
+            
+            fetch('/api/ambulance/dispatch', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    ambulance_id: ambulanceId,
+                    destination_hospital: 'Emergency Call',
+                    eta: 30
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message || 'Ambulance dispatched');
+                location.reload();
+            })
+            .catch(error => {
+                alert('Error dispatching ambulance');
+                console.error(error);
+            });
+        }
+
+        function returnAmbulance(ambulanceId) {
+            if (!confirm('Mark ambulance as returned?')) return;
+            
+            fetch(`/api/ambulance/return/${ambulanceId}`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'}
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message || 'Ambulance returned');
+                location.reload();
+            })
+            .catch(error => {
+                alert('Error updating ambulance');
+                console.error(error);
+            });
+        }
+
+        // Auto-refresh every 30 seconds
+        setInterval(function() {
+            location.reload();
+        }, 30000);
+    </script>
+</body>
+</html>

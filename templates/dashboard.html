@@ -1,0 +1,846 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - CareInsight AI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        .risk-critical { background-color: #000; color: white; }
+        .risk-high { background-color: #dc3545; color: white; }
+        .risk-medium { background-color: #ffc107; color: #000; }
+        .risk-low { background-color: #28a745; color: white; }
+        .stat-card {
+            border-radius: 15px;
+            padding: 20px;
+            color: white;
+            transition: transform 0.3s, box-shadow 0.3s;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            height: 100%;
+            min-height: 140px;
+        }
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px rgba(0,0,0,0.2);
+        }
+        .stat-card .display-6 {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .welcome-banner {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.3);
+        }
+        .action-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+            cursor: pointer;
+            height: 100%;
+            border: none;
+        }
+        .action-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        }
+        .badge-risk {
+            font-size: 0.9rem;
+            padding: 8px 12px;
+        }
+        .table th {
+            font-weight: 600;
+            color: #495057;
+        }
+        .progress {
+            border-radius: 10px;
+            background-color: #e9ecef;
+        }
+        .progress-bar {
+            border-radius: 10px;
+            transition: width 0.5s ease;
+        }
+        .chart-container {
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .bg-gradient-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .bg-gradient-success {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        }
+        .bg-gradient-info {
+            background: linear-gradient(135deg, #17a2b8 0%, #0dcaf0 100%);
+        }
+        .bg-gradient-warning {
+            background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+        }
+        .bg-gradient-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+        }
+        .chart-placeholder {
+            height: 400px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8f9fa;
+            border-radius: 10px;
+            color: #6c757d;
+        }
+        .bed-status {
+            font-size: 0.9rem;
+            padding: 3px 8px;
+            border-radius: 12px;
+        }
+        .discharge-btn {
+            transition: all 0.3s;
+        }
+        .discharge-btn:hover {
+            transform: scale(1.05);
+        }
+        .admitted-badge {
+            background-color: #28a745;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+        .discharged-badge {
+            background-color: #6c757d;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/dashboard">
+                <i class="bi bi-heart-pulse"></i> CareInsight AI 
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <span class="nav-link">
+                            <i class="bi bi-building"></i> {{ hospital.hospital_name }}
+                        </span>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/hospital_profile">
+                            <i class="bi bi-person-circle"></i> Profile
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/patient_history">
+                            <i class="bi bi-clock-history"></i> History
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/logout">
+                            <i class="bi bi-box-arrow-right"></i> Logout
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category if category != 'message' else 'info' }} alert-dismissible fade show" role="alert">
+                        <i class="bi bi-{{ 'check-circle' if category == 'success' else 'exclamation-triangle' }}"></i>
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Welcome Banner -->
+        <div class="welcome-banner">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h2 class="display-6 fw-bold">Welcome back, {{ hospital.hospital_name }}!</h2>
+                    <p class="mb-0 fs-5">
+                        <i class="bi bi-geo-alt"></i> {{ hospital.location }} ({{ hospital.area_type }}) |
+                        <i class="bi bi-building"></i> {{ hospital.hospital_type }} |
+                        <i class="bi bi-telephone"></i> {{ hospital.contact_number }}
+                    </p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <span class="badge bg-light text-dark p-3 fs-6">
+                        <i class="bi bi-calendar"></i> <span id="currentDate"></span>
+                        <br><small><i class="bi bi-clock"></i> <span id="currentTime"></span> IST</small>
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="row mb-4 g-3">
+            <div class="col-md-2">
+                <div class="stat-card bg-primary" onclick="window.location.href='/patient_history'">
+                    <h3 class="display-6 fw-bold">{{ stats.total }}</h3>
+                    <p class="mb-0 fs-6"><i class="bi bi-people"></i> Total Patients</p>
+                    <small class="opacity-75">Last 3 months</small>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="stat-card" style="background-color: black;" onclick="window.location.href='/patient_history?risk=critical'">
+                    <h3 class="display-6 fw-bold">{{ stats.critical }}</h3>
+                    <p class="mb-0 fs-6"><i class="bi bi-exclamation-triangle"></i> Critical ⚫</p>
+                    <small class="opacity-75">Immediate</small>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="stat-card bg-danger" onclick="window.location.href='/patient_history?risk=high'">
+                    <h3 class="display-6 fw-bold">{{ stats.high }}</h3>
+                    <p class="mb-0 fs-6"><i class="bi bi-arrow-up"></i> High 🔴</p>
+                    <small class="opacity-75">Urgent</small>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="stat-card bg-warning" onclick="window.location.href='/patient_history?risk=medium'">
+                    <h3 class="display-6 fw-bold">{{ stats.medium }}</h3>
+                    <p class="mb-0 fs-6"><i class="bi bi-dash-circle"></i> Medium 🟡</p>
+                    <small class="opacity-75">2-4 hours</small>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="stat-card bg-success" onclick="window.location.href='/patient_history?risk=low'">
+                    <h3 class="display-6 fw-bold">{{ stats.low }}</h3>
+                    <p class="mb-0 fs-6"><i class="bi bi-check-circle"></i> Low 🟢</p>
+                    <small class="opacity-75">Routine</small>
+                </div>
+            </div>
+            <div class="col-md-2">
+                <div class="stat-card bg-info" onclick="window.location.href='/patient_history?transferred=true'">
+                    <h3 class="display-6 fw-bold">{{ stats.transferred }}</h3>
+                    <p class="mb-0 fs-6"><i class="bi bi-truck"></i> Transferred</p>
+                    <small class="opacity-75">To other hospitals</small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="row mb-4 g-3">
+            <div class="col-md-6">
+                <div class="action-card" onclick="window.location.href='/new_patient'">
+                    <div class="d-flex align-items-center">
+                        <div class="bg-gradient-success text-white p-3 rounded-circle me-3" style="width: 70px; height: 70px; display: flex; align-items: center; justify-content: center;">
+                            <i class="bi bi-person-plus fs-1"></i>
+                        </div>
+                        <div>
+                            <h4 class="mb-1 fw-bold">New Patient Triage</h4>
+                            <p class="text-muted mb-0">Start a new patient assessment in under 2 minutes</p>
+                            <small class="text-primary">Click to begin →</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="action-card" onclick="startVoiceInput()">
+                    <div class="d-flex align-items-center">
+                        <div class="bg-gradient-primary text-white p-3 rounded-circle me-3" style="width: 70px; height: 70px; display: flex; align-items: center; justify-content: center;">
+                            <i class="bi bi-mic fs-1"></i>
+                        </div>
+                        <div>
+                            <h4 class="mb-1 fw-bold">Voice Symptom Input</h4>
+                            <p class="text-muted mb-0">Record symptoms using voice recognition</p>
+                            <small class="text-primary">Multilingual support</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resource Status with Bed Management -->
+        <div class="row mb-4 g-3">
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header bg-gradient-primary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Resource Availability</h5>
+                        <button class="btn btn-sm btn-light" onclick="fixBedCounts()" title="Fix bed count inconsistencies">
+                            <i class="bi bi-arrow-repeat"></i> Sync Beds
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="mb-3">
+                                    <p class="mb-1"><i class="bi bi-person-badge"></i> <strong>Doctors:</strong></p>
+                                    <h4>{{ hospital.total_doctors or 0 }}</h4>
+                                </div>
+                                <div class="mb-3">
+                                    <p class="mb-1"><i class="bi bi-person"></i> <strong>Nurses:</strong></p>
+                                    <h4>{{ hospital.nurses_count or 0 }}</h4>
+                                </div>
+                                <div class="mb-3">
+                                    <p class="mb-1"><i class="bi bi-person-workspace"></i> <strong>Ward Boys:</strong></p>
+                                    <h4>{{ hospital.wardboys_count or 0 }}</h4>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="mb-3">
+                                    <p class="mb-1"><i class="bi bi-bed"></i> <strong>Total Beds:</strong></p>
+                                    <h4>{{ hospital.total_beds or 0 }}</h4>
+                                </div>
+                                <div class="mb-3">
+                                    <p class="mb-1"><i class="bi bi-bed-fill"></i> <strong>Available Beds:</strong></p>
+                                    <h4 class="{% if hospital.available_beds > 0 %}text-success{% else %}text-danger{% endif %}">
+                                        {{ hospital.available_beds or 0 }}
+                                        {% if hospital.available_beds == 0 %}
+                                            <span class="badge bg-danger ms-2">Full</span>
+                                        {% endif %}
+                                    </h4>
+                                </div>
+                                <div class="mb-3">
+                                    <p class="mb-1"><i class="bi bi-heart-pulse"></i> <strong>ICU:</strong></p>
+                                    <h4>{% if hospital.has_icu %}<span class="badge bg-success">Available</span>{% else %}<span class="badge bg-secondary">Not Available</span>{% endif %}</h4>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <p class="mb-1"><strong>Bed Occupancy:</strong></p>
+                            <div class="progress" style="height: 25px;">
+                                {% set occupancy = ((hospital.total_beds - hospital.available_beds) / hospital.total_beds * 100) if hospital.total_beds and hospital.total_beds > 0 else 0 %}
+                                <div class="progress-bar {% if occupancy < 50 %}bg-success{% elif occupancy < 80 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                     role="progressbar" style="width: {{ occupancy }}%">
+                                    {{ occupancy|round(1) }}% Occupied ({{ hospital.total_beds - hospital.available_beds }}/{{ hospital.total_beds }} beds)
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card h-100">
+                    <div class="card-header bg-gradient-info text-white">
+                        <h5 class="mb-0"><i class="bi bi-truck"></i> Emergency Transport</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex align-items-center mb-4">
+                            <i class="bi bi-ambulance fs-1 me-3 text-danger"></i>
+                            <div>
+                                <h5 class="mb-1">Ambulance Services</h5>
+                                <p class="text-muted mb-0">24/7 emergency transport available</p>
+                                <span class="badge bg-success mt-2">
+                                    <i class="bi bi-check-circle"></i> {{ ambulance_status or 'Available' }}
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <!-- Doctor Availability by Department -->
+                        <h6 class="mt-3"><i class="bi bi-person-badge"></i> Doctor Availability</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>Department</th>
+                                        <th>On Duty</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for doctor in departments %}
+                                    <tr>
+                                        <td>{{ doctor.name }}</td>
+                                        <td>{{ doctor.doctors_on_duty }}/{{ doctor.total_doctors }}</td>
+                                        <td>
+                                            {% if doctor.doctors_on_duty and doctor.doctors_on_duty > 0 %}
+                                                <span class="badge bg-success">Available</span>
+                                            {% else %}
+                                                <span class="badge bg-danger">Unavailable</span>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="3" class="text-center">No department data available</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="alert alert-info mt-3">
+                            <i class="bi bi-info-circle"></i> 
+                            <strong>Protocol:</strong> For critical patients, ensure ambulance is ready within 5 minutes
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced Charts Section -->
+        <div class="row mb-4 g-3">
+            <div class="col-md-12">
+                <div class="card chart-container">
+                    <div class="card-header bg-gradient-primary text-white">
+                        <h5 class="mb-0"><i class="bi bi-graph-up"></i> Advanced Analytics Dashboard</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="riskChart" style="height: 450px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-4 g-3">
+            <div class="col-md-12">
+                <div class="card chart-container">
+                    <div class="card-header bg-gradient-info text-white">
+                        <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Department Distribution</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="deptChart" style="height: 400px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Patients with Discharge Controls -->
+        <div class="card">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-clock-history"></i> Recent Patients</h5>
+                <div>
+                    <span class="badge bg-success me-2">🟢 Admitted</span>
+                    <span class="badge bg-secondary me-2">⚪ Discharged</span>
+                    <a href="/patient_history" class="btn btn-sm btn-light">View All <i class="bi bi-arrow-right"></i></a>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Time (IST)</th>
+                                <th>Patient ID</th>
+                                <th>Name</th>
+                                <th>Age/Gender</th>
+                                <th>Risk Level</th>
+                                <th>Department</th>
+                                <th>Decision</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for patient in patients %}
+                            <tr>
+                                <td><small>{{ patient.created_at.strftime('%I:%M %p') }}</small></td>
+                                <td><code>{{ patient.patient_id }}</code></td>
+                                <td>{{ patient.name }}</td>
+                                <td>{{ patient.age }}/{{ patient.gender }}</td>
+                                <td>
+                                    <span class="badge badge-risk bg-{% if patient.risk_color == 'Black' %}dark{% elif patient.risk_color == 'Red' %}danger{% elif patient.risk_color == 'Yellow' %}warning text-dark{% else %}success{% endif %}">
+                                        {{ patient.risk_level }} ({{ patient.risk_color }})
+                                    </span>
+                                </td>
+                                <td>{{ patient.recommended_department }}</td>
+                                <td>
+                                    {% if 'Transfer' in patient.treatment_decision %}
+                                        <span class="badge bg-warning text-dark"><i class="bi bi-truck"></i> Transfer</span>
+                                    {% else %}
+                                        <span class="badge bg-success"><i class="bi bi-check-circle"></i> Treat Local</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if patient.is_admitted and not patient.discharge_date %}
+                                        <span class="admitted-badge">
+                                            <i class="bi bi-person-check"></i> Admitted
+                                            {% if patient.bed_number %}
+                                                <small>(Bed #{{ patient.bed_number }})</small>
+                                            {% endif %}
+                                        </span>
+                                    {% elif patient.discharge_date %}
+                                        <span class="discharged-badge">
+                                            <i class="bi bi-person-check"></i> Discharged
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">OPD</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="/patient/{{ patient.patient_id }}" class="btn btn-outline-primary" title="View Details">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                        {% if patient.is_admitted and not patient.discharge_date %}
+                                            <button class="btn btn-outline-success discharge-btn" onclick="dischargePatient('{{ patient.patient_id }}')" title="Discharge Patient">
+                                                <i class="bi bi-check-circle"></i>
+                                            </button>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr>
+                                <td colspan="9" class="text-center py-5">
+                                    <i class="bi bi-inbox fs-1 d-block mb-3 text-muted"></i>
+                                    <h5>No patients yet</h5>
+                                    <p class="text-muted">Click "New Patient Triage" to start your first assessment</p>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Voice Input Modal -->
+    <div class="modal fade" id="voiceModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-gradient-primary text-white">
+                    <h5 class="modal-title"><i class="bi bi-mic"></i> Voice Symptom Input</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center p-4">
+                    <div class="spinner-border text-primary mb-3" role="status" id="voiceSpinner" style="display: none; width: 3rem; height: 3rem;">
+                        <span class="visually-hidden">Listening...</span>
+                    </div>
+                    <div id="voiceStatus" class="mb-3 fs-5">Click the button and speak clearly</div>
+                    <div id="voiceResult" class="alert alert-info mt-3" style="display: none;"></div>
+                    <div class="mt-3">
+                        <small class="text-muted">Supported languages: English, Hindi, Tamil, Telugu, Malayalam</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x"></i> Close
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="startSpeechRecognition()" id="startVoiceBtn">
+                        <i class="bi bi-mic"></i> Start Speaking
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let voiceModal;
+        let recognition = null;
+
+        // Initialize modal when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            voiceModal = new bootstrap.Modal(document.getElementById('voiceModal'));
+            
+            // Display current date and time in IST
+            updateDateTime();
+            setInterval(updateDateTime, 1000);
+            
+            // Render charts
+            renderCharts();
+            
+            // Auto-refresh bed counts every 30 seconds
+            setInterval(refreshBedCounts, 30000);
+        });
+
+        function updateDateTime() {
+            const now = new Date();
+
+            const dateOptions = {
+                timeZone: 'Asia/Kolkata',
+                year: 'numeric',
+                month: 'long',
+                day: 'numeric'
+            };
+
+            const timeOptions = {
+                timeZone: 'Asia/Kolkata',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: true
+            };
+
+            document.getElementById('currentDate').innerHTML =
+                now.toLocaleDateString('en-IN', dateOptions);
+
+            document.getElementById('currentTime').innerHTML =
+                now.toLocaleTimeString('en-IN', timeOptions);
+        }
+
+        function renderCharts() {
+            try {
+                // Risk distribution chart
+                {% if risk_chart %}
+                    var riskChart = {{ risk_chart | safe }};
+                    if (riskChart && riskChart.data) {
+                        Plotly.newPlot('riskChart', riskChart.data, riskChart.layout || {});
+                    } else {
+                        showFallbackChart('riskChart', 'No risk data available');
+                    }
+                {% else %}
+                    showFallbackChart('riskChart', 'No risk data available');
+                {% endif %}
+                
+                // Department chart
+                {% if dept_chart %}
+                    var deptChart = {{ dept_chart | safe }};
+                    if (deptChart && deptChart.data) {
+                        Plotly.newPlot('deptChart', deptChart.data, deptChart.layout || {});
+                    } else {
+                        showFallbackChart('deptChart', 'No department data available');
+                    }
+                {% else %}
+                    showFallbackChart('deptChart', 'No department data available');
+                {% endif %}
+            } catch (error) {
+                console.error('Error rendering charts:', error);
+                showFallbackChart('riskChart', 'Error loading chart');
+                showFallbackChart('deptChart', 'Error loading chart');
+            }
+        }
+
+        function showFallbackChart(elementId, message) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.innerHTML = `
+                    <div class="chart-placeholder">
+                        <div class="text-center">
+                            <i class="bi bi-bar-chart fs-1 d-block mb-3"></i>
+                            <h5>${message}</h5>
+                            <p class="text-muted">Add patients to see analytics</p>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function startVoiceInput() {
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                voiceModal.show();
+                document.getElementById('voiceStatus').innerHTML = 'Ready. Click "Start Speaking" to begin.';
+                document.getElementById('voiceResult').style.display = 'none';
+            } else {
+                alert('Speech recognition is not supported in your browser. Please use Chrome, Edge, or Safari.');
+            }
+        }
+
+        function startSpeechRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            
+            if (!SpeechRecognition) {
+                alert('Speech recognition not supported');
+                return;
+            }
+
+            recognition = new SpeechRecognition();
+            
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+            recognition.lang = 'en-US';
+
+            const startBtn = document.getElementById('startVoiceBtn');
+            const spinner = document.getElementById('voiceSpinner');
+            const status = document.getElementById('voiceStatus');
+            const result = document.getElementById('voiceResult');
+
+            spinner.style.display = 'inline-block';
+            status.innerHTML = '🎤 Listening... Speak now';
+            startBtn.disabled = true;
+            startBtn.innerHTML = '<i class="bi bi-stop-circle"></i> Listening...';
+            result.style.display = 'none';
+
+            recognition.start();
+
+            recognition.onresult = function(event) {
+                const text = event.results[0][0].transcript;
+                
+                fetch('/process_voice_text', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ text: text })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    spinner.style.display = 'none';
+                    
+                    if (data.success) {
+                        result.innerHTML = `
+                            <strong>Recognized:</strong> ${data.text}<br>
+                            <strong>Language:</strong> ${data.language}
+                        `;
+                        result.style.display = 'block';
+                        status.innerHTML = '✅ Recording complete!';
+                        
+                        setTimeout(() => {
+                            if (confirm('Go to new patient form with these symptoms?')) {
+                                sessionStorage.setItem('voiceSymptoms', data.text);
+                                window.location.href = '/new_patient';
+                            }
+                        }, 500);
+                    } else {
+                        result.innerHTML = `<span class="text-danger">Error: ${data.error}</span>`;
+                        result.style.display = 'block';
+                        status.innerHTML = '❌ Recognition failed';
+                    }
+                })
+                .catch(error => {
+                    spinner.style.display = 'none';
+                    result.innerHTML = `<span class="text-danger">Error: ${error.message}</span>`;
+                    result.style.display = 'block';
+                    status.innerHTML = '❌ Processing failed';
+                });
+            };
+
+            recognition.onerror = function(event) {
+                spinner.style.display = 'none';
+                let errorMsg = 'Speech recognition error';
+                
+                switch(event.error) {
+                    case 'no-speech':
+                        errorMsg = 'No speech detected. Please try again.';
+                        break;
+                    case 'audio-capture':
+                        errorMsg = 'Microphone not found. Please check your microphone.';
+                        break;
+                    case 'not-allowed':
+                        errorMsg = 'Microphone access denied. Please allow microphone access.';
+                        break;
+                    case 'network':
+                        errorMsg = 'Network error. Please check your internet connection.';
+                        break;
+                    default:
+                        errorMsg = `Error: ${event.error}`;
+                }
+                
+                status.innerHTML = `❌ ${errorMsg}`;
+                resetVoiceButton();
+            };
+
+            recognition.onend = function() {
+                spinner.style.display = 'none';
+                resetVoiceButton();
+            };
+        }
+
+        function resetVoiceButton() {
+            const startBtn = document.getElementById('startVoiceBtn');
+            startBtn.disabled = false;
+            startBtn.innerHTML = '<i class="bi bi-mic"></i> Start Speaking';
+        }
+
+        // Discharge patient function
+        function dischargePatient(patientId) {
+            if (!confirm('Are you sure you want to discharge this patient? This will free up a bed.')) {
+                return;
+            }
+            
+            fetch(`/discharge_patient/${patientId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showFlashMessage(data.message, 'success');
+                    // Reload page after 1 second to show updated data
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showFlashMessage('Error: ' + data.error, 'danger');
+                }
+            })
+            .catch(error => {
+                showFlashMessage('Error discharging patient: ' + error.message, 'danger');
+            });
+        }
+
+        // Fix bed counts
+        function fixBedCounts() {
+            fetch('/api/fix_beds', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showFlashMessage(data.message, 'success');
+                    // Reload page after 1 second to show updated counts
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    showFlashMessage('Error fixing bed counts', 'danger');
+                }
+            })
+            .catch(error => {
+                showFlashMessage('Error: ' + error.message, 'danger');
+            });
+        }
+
+        // Refresh bed counts without reloading
+        function refreshBedCounts() {
+            fetch('/api/fix_beds', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log('Bed counts synced:', data.available_beds, 'beds available');
+                }
+            })
+            .catch(error => {
+                console.error('Error syncing bed counts:', error);
+            });
+        }
+
+        function showFlashMessage(message, type) {
+            const flashDiv = document.getElementById('flashMessages');
+            flashDiv.innerHTML = `
+                <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                    <i class="bi bi-${type === 'success' ? 'check-circle' : 'exclamation-triangle'}"></i>
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            `;
+            
+            // Auto dismiss after 5 seconds
+            setTimeout(() => {
+                flashDiv.innerHTML = '';
+            }, 5000);
+        }
+
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.shiftKey && e.key === 'V') {
+                e.preventDefault();
+                startVoiceInput();
+            }
+        });
+    </script>
+</body>
+</html>

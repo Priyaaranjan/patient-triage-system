@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Registration - AI Triage System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px 0;
+        }
+        .register-card {
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        .card-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+        }
+        #map {
+            height: 300px;
+            width: 100%;
+            border-radius: 10px;
+            margin-top: 10px;
+            margin-bottom: 10px;
+            border: 2px solid #ddd;
+        }
+        .department-row {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+        .add-btn {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .add-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+        }
+        .remove-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-10">
+                <div class="card register-card">
+                    <div class="card-header text-center">
+                        <h3 class="mb-0"><i class="bi bi-building"></i> Hospital Registration</h3>
+                        <p class="mb-0">Complete all details for accurate triage</p>
+                    </div>
+                    <div class="card-body p-4">
+                        {% with messages = get_flashed_messages(with_categories=true) %}
+                            {% if messages %}
+                                {% for category, message in messages %}
+                                    <div class="alert alert-{{ category }}">{{ message }}</div>
+                                {% endfor %}
+                            {% endif %}
+                        {% endwith %}
+
+                        <form method="POST" action="/signup" id="signupForm">
+                            <!-- Basic Information -->
+                            <h5 class="text-primary mb-3"><i class="bi bi-info-circle"></i> Basic Information</h5>
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">Hospital ID *</label>
+                                    <input type="text" name="hospital_id" class="form-control" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Hospital Name *</label>
+                                    <input type="text" name="hospital_name" class="form-control" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Contact Number *</label>
+                                    <input type="text" name="contact_number" class="form-control" required>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-3">
+                                    <label class="form-label">Area Type *</label>
+                                    <select name="area_type" class="form-select" required>
+                                        <option value="urban">Urban (City)</option>
+                                        <option value="rural">Rural (Village)</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Hospital Type *</label>
+                                    <select name="hospital_type" class="form-select" required>
+                                        <option value="government">Government</option>
+                                        <option value="private">Private</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Password *</label>
+                                    <input type="password" name="password" class="form-control" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Location Name *</label>
+                                    <input type="text" name="location" class="form-control" id="locationName" required>
+                                </div>
+                            </div>
+
+                            <!-- Map Location -->
+                            <h5 class="text-primary mb-3"><i class="bi bi-geo-alt"></i> Hospital Location</h5>
+                            <div class="mb-3">
+                                <button type="button" class="btn btn-primary" onclick="getCurrentLocation()">
+                                    <i class="bi bi-crosshair"></i> Use My Location
+                                </button>
+                                <button type="button" class="btn btn-secondary" onclick="searchLocation()">
+                                    <i class="bi bi-search"></i> Search
+                                </button>
+                            </div>
+                            <div id="map"></div>
+                            <input type="hidden" name="latitude" id="latitude" value="28.6139">
+                            <input type="hidden" name="longitude" id="longitude" value="77.2090">
+                            <input type="hidden" name="address" id="address">
+
+                            <!-- Staff Resources -->
+                            <h5 class="text-primary mt-4 mb-3"><i class="bi bi-people"></i> Staff Resources</h5>
+                            <div class="row mb-3">
+                                <div class="col-md-3">
+                                    <label class="form-label">Doctors</label>
+                                    <input type="number" name="doctors_count" class="form-control" value="5" min="0">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Nurses</label>
+                                    <input type="number" name="nurses_count" class="form-control" value="10" min="0">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Ward Boys</label>
+                                    <input type="number" name="wardboys_count" class="form-control" value="5" min="0">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Total Beds</label>
+                                    <input type="number" name="total_beds" class="form-control" value="50" min="0">
+                                </div>
+                            </div>
+
+                            <!-- Ambulance Count -->
+                            <h5 class="text-primary mt-4 mb-3"><i class="bi bi-truck"></i> Ambulance Fleet</h5>
+                            <div class="row mb-3">
+                                <div class="col-md-3">
+                                    <label class="form-label">Number of Ambulances *</label>
+                                    <input type="number" name="ambulance_count" class="form-control" value="2" min="1" max="10" required>
+                                </div>
+                            </div>
+
+                            <!-- Departments -->
+                            <h5 class="text-primary mt-4 mb-3"><i class="bi bi-hospital"></i> Departments</h5>
+                            <div id="departments-container">
+                                <div class="department-row" id="dept-1">
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <label class="form-label">Department Name</label>
+                                            <select name="departments[]" class="form-select" required>
+                                                <option value="General Medicine">General Medicine</option>
+                                                <option value="Cardiology">Cardiology</option>
+                                                <option value="Neurology">Neurology</option>
+                                                <option value="Pediatrics">Pediatrics</option>
+                                                <option value="Orthopedics">Orthopedics</option>
+                                                <option value="Emergency">Emergency</option>
+                                                <option value="Respiratory">Respiratory</option>
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">Total Doctors</label>
+                                            <input type="number" name="doctors_General Medicine" class="form-control" value="4" min="1">
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">On Duty</label>
+                                            <input type="number" name="duty_General Medicine" class="form-control" value="2" min="0">
+                                        </div>
+                                        <div class="col-md-2">
+                                            <label class="form-label">On Call</label>
+                                            <input type="number" name="oncall_General Medicine" class="form-control" value="1" min="0">
+                                        </div>
+                                        <div class="col-md-2">
+                                            <button type="button" class="btn btn-danger mt-4" onclick="removeDepartment(1)">Remove</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <button type="button" class="btn add-btn mb-4" onclick="addDepartment()">
+                                <i class="bi bi-plus-circle"></i> Add Another Department
+                            </button>
+
+                            <!-- Facilities -->
+                            <h5 class="text-primary mt-2 mb-3"><i class="bi bi-building"></i> Facilities</h5>
+                            <div class="row mb-4">
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="has_operation" id="hasOperation">
+                                        <label class="form-check-label" for="hasOperation">Operation Theater</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="has_icu" id="hasICU">
+                                        <label class="form-check-label" for="hasICU">ICU Facility</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="checkbox" name="has_emergency" id="hasEmergency">
+                                        <label class="form-check-label" for="hasEmergency">Emergency</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary w-100 py-3">
+                                <i class="bi bi-check-circle"></i> Register Hospital
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let map, marker;
+        let deptCount = 1;
+
+        // Initialize map
+        map = L.map('map').setView([28.6139, 77.2090], 5);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        map.on('click', function(e) {
+            placeMarker(e.latlng);
+        });
+
+        function placeMarker(latlng) {
+            if (marker) map.removeLayer(marker);
+            marker = L.marker(latlng, {draggable: true}).addTo(map);
+            
+            document.getElementById('latitude').value = latlng.lat;
+            document.getElementById('longitude').value = latlng.lng;
+            
+            marker.on('dragend', function(e) {
+                var pos = e.target.getLatLng();
+                document.getElementById('latitude').value = pos.lat;
+                document.getElementById('longitude').value = pos.lng;
+            });
+            
+            // Reverse geocoding
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latlng.lat}&lon=${latlng.lng}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.display_name) {
+                        document.getElementById('address').value = data.display_name;
+                        const city = data.address.city || data.address.town || data.address.village;
+                        if (city) document.getElementById('locationName').value = city;
+                    }
+                });
+        }
+
+        function getCurrentLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    pos => placeMarker({lat: pos.coords.latitude, lng: pos.coords.longitude})
+                );
+            }
+        }
+
+        function searchLocation() {
+            let loc = prompt("Enter location:");
+            if (loc) {
+                fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${loc}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.length > 0) {
+                            placeMarker({lat: data[0].lat, lng: data[0].lon});
+                        }
+                    });
+            }
+        }
+
+        function addDepartment() {
+            deptCount++;
+            const container = document.getElementById('departments-container');
+            const newDept = document.createElement('div');
+            newDept.className = 'department-row';
+            newDept.id = `dept-${deptCount}`;
+            newDept.innerHTML = `
+                <div class="row">
+                    <div class="col-md-4">
+                        <label class="form-label">Department Name</label>
+                        <select name="departments[]" class="form-select" required>
+                            <option value="General Medicine">General Medicine</option>
+                            <option value="Cardiology">Cardiology</option>
+                            <option value="Neurology">Neurology</option>
+                            <option value="Pediatrics">Pediatrics</option>
+                            <option value="Orthopedics">Orthopedics</option>
+                            <option value="Emergency">Emergency</option>
+                            <option value="Respiratory">Respiratory</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Total Doctors</label>
+                        <input type="number" name="doctors_\${value}" class="form-control" value="3" min="1">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">On Duty</label>
+                        <input type="number" name="duty_\${value}" class="form-control" value="2" min="0">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">On Call</label>
+                        <input type="number" name="oncall_\${value}" class="form-control" value="1" min="0">
+                    </div>
+                    <div class="col-md-2">
+                        <button type="button" class="btn btn-danger mt-4" onclick="removeDepartment(${deptCount})">Remove</button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(newDept);
+        }
+
+        function removeDepartment(id) {
+            if (deptCount > 1) {
+                document.getElementById(`dept-${id}`).remove();
+            }
+        }
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

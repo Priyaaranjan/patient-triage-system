@@ -1,0 +1,1367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Patient - CareInsight AI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    <style>
+        .risk-critical { background-color: #000; color: white; }
+        .risk-high { background-color: #dc3545; color: white; }
+        .risk-medium { background-color: #ffc107; color: #000; }
+        .risk-low { background-color: #28a745; color: white; }
+        .voice-btn-active {
+            background-color: #dc3545;
+            color: white;
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .hospital-card {
+            border-left: 4px solid;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+            padding: 15px;
+            border-radius: 10px;
+            background: white;
+            border: 2px solid transparent;
+            cursor: pointer;
+        }
+        .hospital-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+        }
+        .govt-hospital {
+            border-left-color: #28a745;
+            background-color: #f0fff0;
+        }
+        .govt-hospital:hover {
+            border-color: #28a745;
+        }
+        .private-hospital {
+            border-left-color: #17a2b8;
+            background-color: #e6f3ff;
+        }
+        .private-hospital:hover {
+            border-color: #17a2b8;
+        }
+        .best-hospital {
+            border: 2px solid #ffc107;
+            background-color: #fff3cd;
+            border-radius: 10px;
+        }
+        .safety-score {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #28a745;
+        }
+        .risk-badge {
+            font-size: 0.9rem;
+            padding: 5px 10px;
+            border-radius: 20px;
+        }
+        .transfer-warning {
+            border-left: 5px solid;
+            animation: slideIn 0.5s;
+        }
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .survival-meter {
+            height: 8px;
+            border-radius: 4px;
+            background: linear-gradient(90deg, #dc3545 0%, #ffc107 50%, #28a745 100%);
+            margin: 10px 0;
+        }
+        .resource-issue {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+        .bg-risk-high { background-color: #dc3545; color: white; }
+        .bg-risk-medium { background-color: #ffc107; color: black; }
+        .bg-risk-low { background-color: #28a745; color: white; }
+        .bg-risk-critical { background-color: black; color: white; }
+        .selection-card {
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .selection-card:hover {
+            transform: scale(1.02);
+        }
+        .hospital-detail {
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
+        .survival-progress {
+            height: 6px;
+            border-radius: 3px;
+        }
+        .tts-button {
+            transition: all 0.3s;
+        }
+        .tts-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0,123,255,0.3);
+        }
+        .tts-playing {
+            background-color: #dc3545;
+            color: white;
+            animation: pulse 1.5s infinite;
+        }
+        .explanation-container {
+            position: relative;
+            padding-right: 50px;
+        }
+        .tts-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/dashboard">
+                <i class="bi bi-heart-pulse"></i> CareInsight AI
+            </a>
+            <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="/dashboard">
+                    <i class="bi bi-arrow-left"></i> Back to Dashboard
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        <div class="row">
+            <div class="col-md-8 mx-auto">
+                <!-- Flash Messages -->
+                <div id="flashMessages"></div>
+
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0"><i class="bi bi-person-plus"></i> New Patient Triage Assessment</h4>
+                    </div>
+                    <div class="card-body">
+                        <form id="patientForm" onsubmit="submitPatient(event)">
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Patient Name <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="name" name="name" placeholder="Enter patient name" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Age <span class="text-danger">*</span></label>
+                                    <input type="number" class="form-control" id="age" name="age" required min="0" max="150" placeholder="Years">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label">Gender <span class="text-danger">*</span></label>
+                                    <select class="form-select" id="gender" name="gender" required>
+                                        <option value="">Select</option>
+                                        <option value="Male">Male</option>
+                                        <option value="Female">Female</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Symptoms <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <textarea class="form-control" id="symptoms" name="symptoms" rows="3" placeholder="Describe patient symptoms in detail" required></textarea>
+                                    <button class="btn btn-outline-primary" type="button" onclick="startVoiceInput()" id="voiceBtn">
+                                        <i class="bi bi-mic"></i> Voice Input
+                                    </button>
+                                </div>
+                                <small class="text-muted">Describe symptoms clearly for accurate triage</small>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <label class="form-label">Blood Pressure <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="blood_pressure" name="blood_pressure" 
+                                           placeholder="120/80" required pattern="\d{2,3}/\d{2,3}" title="Enter in format: systolic/diastolic (e.g., 120/80)">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Heart Rate (bpm) <span class="text-danger">*</span></label>
+                                    <input type="number" class="form-control" id="heart_rate" name="heart_rate" required min="30" max="220" placeholder="60-100">
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label">Temperature (°F) <span class="text-danger">*</span></label>
+                                    <input type="number" step="0.1" class="form-control" id="temperature" name="temperature" required min="90" max="110" placeholder="98.6">
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Pre-existing Conditions</label>
+                                <textarea class="form-control" id="pre_conditions" name="pre_conditions" rows="2" placeholder="e.g., Diabetes, Hypertension, Asthma (comma separated)"></textarea>
+                            </div>
+
+                            <div class="mb-4">
+                                <label class="form-label">Upload EHR Document</label>
+                                <div class="input-group">
+                                    <input type="file" class="form-control" id="ehr_file" accept=".pdf,.txt,.json">
+                                    <button type="button" class="btn btn-secondary" onclick="uploadEHR()">
+                                        <i class="bi bi-file-text"></i> Parse
+                                    </button>
+                                </div>
+                                <small class="text-muted">Upload patient's electronic health record for auto-filling</small>
+                            </div>
+
+                            <button type="submit" class="btn btn-primary btn-lg w-100" id="submitBtn">
+                                <i class="bi bi-shield-check"></i> Run Triage Assessment
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- Results Card (initially hidden) -->
+                <div class="card mt-4" id="resultsCard" style="display: none;">
+                    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0"><i class="bi bi-check-circle"></i> Triage Results</h4>
+                        <div id="audioControls" style="display: none;">
+                            <button class="btn btn-sm btn-light me-2" onclick="playExplanation()" id="playButton" title="Listen to AI Explanation">
+                                <i class="bi bi-play-circle"></i> Listen
+                            </button>
+                            <button class="btn btn-sm btn-light" onclick="stopExplanation()" id="stopButton" style="display: none;" title="Stop">
+                                <i class="bi bi-stop-circle"></i> Stop
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h5>Risk Assessment</h5>
+                                <div id="riskBadge" class="mb-3"></div>
+                                <p><strong>Confidence Score:</strong> <span id="confidence"></span>%</p>
+                                <p><strong>Recommended Department:</strong> <span id="department" class="fw-bold"></span></p>
+                                <p><strong>Urgency:</strong> <span id="urgency" class="fw-bold text-danger"></span></p>
+                            </div>
+                            <div class="col-md-6">
+                                <h5>Treatment Decision</h5>
+                                <p><strong>Action:</strong> <span id="decision" class="fw-bold"></span></p>
+                                <p><strong>Outcome:</strong> <span id="outcome"></span></p>
+                            </div>
+                        </div>
+
+                        <!-- ========== ENHANCED TRANSFER DETAILS SECTION ========== -->
+                        <div id="transferDetails" style="display: none;" class="mt-3">
+                            <hr>
+                            <h5 class="text-primary"><i class="bi bi-truck"></i> Transfer Recommendations</h5>
+                            
+                            <!-- Resource Issues Alert -->
+                            <div id="resourceIssues" class="mt-3"></div>
+                            
+                            <!-- Survival Message -->
+                            <div id="survivalMessage" class="mt-3"></div>
+                            
+                            <!-- Ambulance Information -->
+                            <div id="ambulanceInfo" class="mt-3"></div>
+                            
+                            <!-- Best Hospital Recommendation -->
+                            <div id="bestHospitalContainer" class="mb-3"></div>
+                            
+                            <!-- Hospital Selection UI (NEW) -->
+                            <div id="hospitalSelection" class="mt-3"></div>
+                            
+                            <!-- Nearby Hospitals List -->
+                            <div id="nearbyHospitalsList" class="mt-3"></div>
+                            
+                            <div class="row mt-3">
+                                <!-- Government Hospitals -->
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header bg-success text-white">
+                                            <h6 class="mb-0"><i class="bi bi-building"></i> Government Hospitals</h6>
+                                        </div>
+                                        <div class="card-body p-2">
+                                            <div id="nearbyGovt"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Private Hospitals -->
+                                <div class="col-md-6">
+                                    <div class="card">
+                                        <div class="card-header bg-info text-white">
+                                            <h6 class="mb-0"><i class="bi bi-building"></i> Private Hospitals</h6>
+                                        </div>
+                                        <div class="card-body p-2">
+                                            <div id="nearbyPrivate"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Transfer Summary -->
+                            <div class="alert alert-warning mt-3" id="transferSummary">
+                                <i class="bi bi-info-circle"></i> 
+                                <span id="transferReason"></span>
+                            </div>
+                        </div>
+
+                        <!-- Explainable AI Insights with TTS -->
+                        <div class="mt-3 position-relative">
+                            <h5>Explainable AI Insights</h5>
+                            <div id="explanation" class="alert alert-info explanation-container">
+                                <div class="tts-controls">
+                                    <button class="btn btn-sm btn-primary tts-button" onclick="playExplanation()" id="explainPlayBtn" title="Listen to AI Explanation">
+                                        <i class="bi bi-play-circle"></i> Listen
+                                    </button>
+                                    <button class="btn btn-sm btn-danger tts-button" onclick="stopExplanation()" id="explainStopBtn" style="display: none;" title="Stop">
+                                        <i class="bi bi-stop-circle"></i> Stop
+                                    </button>
+                                </div>
+                                <i class="bi bi-info-circle"></i> <span id="explanationText"></span>
+                            </div>
+                            
+                            <!-- Audio Progress Bar -->
+                            <div id="audioProgress" class="progress mb-2" style="height: 5px; display: none;">
+                                <div id="audioProgressBar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                                     role="progressbar" style="width: 0%"></div>
+                            </div>
+                            
+                            <!-- Audio Wave Animation -->
+                            <div id="audioWave" class="text-center mb-2" style="display: none;">
+                                <span class="badge bg-info">🔊 Playing...</span>
+                                <div class="spinner-grow spinner-grow-sm text-primary mx-1"></div>
+                                <div class="spinner-grow spinner-grow-sm text-primary mx-1"></div>
+                                <div class="spinner-grow spinner-grow-sm text-primary mx-1"></div>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        <div class="text-end">
+                            <button class="btn btn-primary" onclick="window.location.href='/new_patient'">
+                                <i class="bi bi-plus-circle"></i> New Assessment
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Voice Input Modal -->
+    <div class="modal fade" id="voiceModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="bi bi-mic"></i> Voice Symptom Input</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-center p-4">
+                    <div class="spinner-border text-primary mb-3" role="status" id="voiceSpinner" style="display: none; width: 3rem; height: 3rem;">
+                        <span class="visually-hidden">Listening...</span>
+                    </div>
+                    <div id="voiceStatus" class="mb-3 fs-5">Click the button and speak clearly</div>
+                    <div id="voiceResult" class="alert alert-info mt-3" style="display: none;"></div>
+                    <div class="mt-3">
+                        <small class="text-muted">Supported languages: English, Hindi, Tamil, Telugu, Malayalam</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x"></i> Close
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="startSpeechRecognition()" id="startVoiceBtn">
+                        <i class="bi bi-mic"></i> Start Speaking
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let voiceModal;
+        let recognition = null;
+        
+        // ========== TEXT-TO-SPEECH VARIABLES ==========
+        let currentAudio = null;
+        let currentExplanation = '';
+        let audioContext = null;
+        let audioSource = null;
+
+        // Initialize modal when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            voiceModal = new bootstrap.Modal(document.getElementById('voiceModal'));
+            
+            // Check if there are voice symptoms stored from dashboard
+            const voiceSymptoms = sessionStorage.getItem('voiceSymptoms');
+            if (voiceSymptoms) {
+                document.getElementById('symptoms').value = voiceSymptoms;
+                sessionStorage.removeItem('voiceSymptoms');
+                showFlashMessage('Voice symptoms loaded!', 'success');
+            }
+            
+            // Initialize Audio Context for better control
+            if (window.AudioContext || window.webkitAudioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        });
+
+        function startVoiceInput() {
+            // Check if browser supports speech recognition
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                voiceModal.show();
+                document.getElementById('voiceStatus').innerHTML = 'Ready. Click "Start Speaking" to begin.';
+                document.getElementById('voiceResult').style.display = 'none';
+            } else {
+                alert('Speech recognition is not supported in your browser. Please use Chrome, Edge, or Safari.');
+            }
+        }
+
+        function startSpeechRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            
+            if (!SpeechRecognition) {
+                alert('Speech recognition not supported');
+                return;
+            }
+
+            recognition = new SpeechRecognition();
+            
+            // Configure recognition
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.maxAlternatives = 1;
+            recognition.lang = 'en-US';
+
+            // Get UI elements
+            const startBtn = document.getElementById('startVoiceBtn');
+            const spinner = document.getElementById('voiceSpinner');
+            const status = document.getElementById('voiceStatus');
+            const result = document.getElementById('voiceResult');
+
+            // Update UI for recording
+            spinner.style.display = 'inline-block';
+            status.innerHTML = '🎤 Listening... Speak now';
+            startBtn.disabled = true;
+            startBtn.innerHTML = '<i class="bi bi-stop-circle"></i> Listening...';
+            result.style.display = 'none';
+
+            // Start recognition
+            recognition.start();
+
+            // Handle results
+            recognition.onresult = function(event) {
+                const text = event.results[0][0].transcript;
+                
+                // Send to server for processing
+                fetch('/process_voice_text', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ text: text })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    spinner.style.display = 'none';
+                    
+                    if (data.success) {
+                        result.innerHTML = `
+                            <strong>Recognized:</strong> ${data.text}<br>
+                            <strong>Language:</strong> ${data.language}
+                        `;
+                        result.style.display = 'block';
+                        status.innerHTML = '✅ Recording complete!';
+                        
+                        // Auto-fill symptoms
+                        document.getElementById('symptoms').value = data.text;
+                    } else {
+                        result.innerHTML = `<span class="text-danger">Error: ${data.error}</span>`;
+                        result.style.display = 'block';
+                        status.innerHTML = '❌ Recognition failed';
+                    }
+                })
+                .catch(error => {
+                    spinner.style.display = 'none';
+                    result.innerHTML = `<span class="text-danger">Error: ${error.message}</span>`;
+                    result.style.display = 'block';
+                    status.innerHTML = '❌ Processing failed';
+                });
+            };
+
+            // Handle errors
+            recognition.onerror = function(event) {
+                spinner.style.display = 'none';
+                let errorMsg = 'Speech recognition error';
+                
+                switch(event.error) {
+                    case 'no-speech':
+                        errorMsg = 'No speech detected. Please try again.';
+                        break;
+                    case 'audio-capture':
+                        errorMsg = 'Microphone not found. Please check your microphone.';
+                        break;
+                    case 'not-allowed':
+                        errorMsg = 'Microphone access denied. Please allow microphone access.';
+                        break;
+                    case 'network':
+                        errorMsg = 'Network error. Please check your internet connection.';
+                        break;
+                    default:
+                        errorMsg = `Error: ${event.error}`;
+                }
+                
+                status.innerHTML = `❌ ${errorMsg}`;
+                resetVoiceButton();
+            };
+
+            // Handle end of speech
+            recognition.onend = function() {
+                spinner.style.display = 'none';
+                resetVoiceButton();
+            };
+        }
+
+        function resetVoiceButton() {
+            const startBtn = document.getElementById('startVoiceBtn');
+            startBtn.disabled = false;
+            startBtn.innerHTML = '<i class="bi bi-mic"></i> Start Speaking';
+        }
+
+        // ========== TEXT-TO-SPEECH FUNCTIONS ==========
+        
+        function playExplanation() {
+            const explanation = document.getElementById('explanationText').innerText;
+            if (!explanation || explanation.trim() === '') {
+                showFlashMessage('No explanation available to play', 'warning');
+                return;
+            }
+            
+            // Stop any currently playing audio
+            stopExplanation();
+            
+            // Show audio controls
+            document.getElementById('audioWave').style.display = 'block';
+            document.getElementById('audioProgress').style.display = 'block';
+            document.getElementById('explainPlayBtn').style.display = 'none';
+            document.getElementById('explainStopBtn').style.display = 'inline-block';
+            
+            // Animate progress bar
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += 1;
+                document.getElementById('audioProgressBar').style.width = progress + '%';
+                if (progress >= 100) {
+                    clearInterval(progressInterval);
+                }
+            }, 100);
+            
+            // Use browser's built-in speech synthesis
+            if ('speechSynthesis' in window) {
+                // Cancel any ongoing speech
+                window.speechSynthesis.cancel();
+                
+                const utterance = new SpeechSynthesisUtterance(explanation);
+                
+                // Configure voice
+                utterance.lang = 'en-US';
+                utterance.rate = 0.9; // Slightly slower for medical terms
+                utterance.pitch = 1;
+                utterance.volume = 1;
+                
+                // Get available voices and try to use a good one
+                const voices = window.speechSynthesis.getVoices();
+                const preferredVoice = voices.find(voice => voice.lang.includes('en') && voice.name.includes('Google')) || 
+                                      voices.find(voice => voice.lang.includes('en')) || 
+                                      voices[0];
+                if (preferredVoice) {
+                    utterance.voice = preferredVoice;
+                }
+                
+                // Handle events
+                utterance.onstart = function() {
+                    console.log('Speech started');
+                };
+                
+                utterance.onend = function() {
+                    // Reset UI when speech ends
+                    document.getElementById('audioWave').style.display = 'none';
+                    document.getElementById('audioProgress').style.display = 'none';
+                    document.getElementById('explainPlayBtn').style.display = 'inline-block';
+                    document.getElementById('explainStopBtn').style.display = 'none';
+                    document.getElementById('audioProgressBar').style.width = '0%';
+                    clearInterval(progressInterval);
+                };
+                
+                utterance.onerror = function(event) {
+                    console.error('Speech error:', event);
+                    showFlashMessage('Error playing audio', 'danger');
+                    document.getElementById('audioWave').style.display = 'none';
+                    document.getElementById('audioProgress').style.display = 'none';
+                    document.getElementById('explainPlayBtn').style.display = 'inline-block';
+                    document.getElementById('explainStopBtn').style.display = 'none';
+                    clearInterval(progressInterval);
+                };
+                
+                // Start speaking
+                window.speechSynthesis.speak(utterance);
+                currentAudio = utterance;
+                
+            } else {
+                // Fallback to server-side TTS
+                fetch('/api/text_to_speech', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        text: explanation,
+                        lang: 'en'
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.audio) {
+                        const audio = new Audio('data:audio/mp3;base64,' + data.audio);
+                        currentAudio = audio;
+                        
+                        audio.onended = function() {
+                            document.getElementById('audioWave').style.display = 'none';
+                            document.getElementById('audioProgress').style.display = 'none';
+                            document.getElementById('explainPlayBtn').style.display = 'inline-block';
+                            document.getElementById('explainStopBtn').style.display = 'none';
+                            document.getElementById('audioProgressBar').style.width = '0%';
+                            clearInterval(progressInterval);
+                        };
+                        
+                        audio.play();
+                    } else {
+                        throw new Error('Failed to generate speech');
+                    }
+                })
+                .catch(error => {
+                    console.error('TTS error:', error);
+                    showFlashMessage('Could not generate speech', 'danger');
+                    document.getElementById('audioWave').style.display = 'none';
+                    document.getElementById('audioProgress').style.display = 'none';
+                    document.getElementById('explainPlayBtn').style.display = 'inline-block';
+                    document.getElementById('explainStopBtn').style.display = 'none';
+                    clearInterval(progressInterval);
+                });
+            }
+        }
+        
+        function stopExplanation() {
+            // Stop browser speech synthesis
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+            }
+            
+            // Stop any HTML5 audio
+            if (currentAudio) {
+                if (currentAudio.pause) {
+                    currentAudio.pause();
+                    currentAudio.currentTime = 0;
+                }
+                currentAudio = null;
+            }
+            
+            // Reset UI
+            document.getElementById('audioWave').style.display = 'none';
+            document.getElementById('audioProgress').style.display = 'none';
+            document.getElementById('explainPlayBtn').style.display = 'inline-block';
+            document.getElementById('explainStopBtn').style.display = 'none';
+            document.getElementById('audioProgressBar').style.width = '0%';
+        }
+
+        // ========== HOSPITAL SELECTION FUNCTION ==========
+        function selectTransferHospital(hospitalId, patientId) {
+            if (!confirm('Are you sure you want to transfer this patient to the selected hospital?')) {
+                return;
+            }
+            
+            // Show loading state on the clicked button
+            const btn = event.target;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Confirming...';
+            btn.disabled = true;
+            
+            fetch('/api/confirm_transfer', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    patient_id: patientId,
+                    hospital_id: hospitalId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showFlashMessage(`✅ Transfer confirmed! Ambulance dispatched. ETA: ${data.eta} minutes`, 'success');
+                    
+                    // Update the UI to show transfer confirmed
+                    document.getElementById('decision').innerText = 'Transfer Confirmed';
+                    document.getElementById('outcome').innerText = `Transferring to selected hospital`;
+                    
+                    // Hide selection UI and show confirmation
+                    document.getElementById('hospitalSelection').innerHTML = `
+                        <div class="alert alert-success mt-3">
+                            <i class="bi bi-check-circle"></i> 
+                            <strong>Transfer Confirmed!</strong> Ambulance dispatched. ETA: ${data.eta} minutes
+                        </div>
+                    `;
+                    
+                    // Redirect to dashboard after 3 seconds
+                    setTimeout(() => {
+                        window.location.href = '/dashboard';
+                    }, 3000);
+                } else {
+                    showFlashMessage('Error: ' + data.error, 'danger');
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
+            })
+            .catch(error => {
+                showFlashMessage('Error confirming transfer: ' + error.message, 'danger');
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            });
+        }
+
+        async function submitPatient(event) {
+            event.preventDefault();
+            
+            // Validate form
+            const form = document.getElementById('patientForm');
+            if (!form.checkValidity()) {
+                form.reportValidity();
+                return;
+            }
+
+            const formData = new FormData(form);
+            const submitBtn = document.getElementById('submitBtn');
+            
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Processing...';
+
+            try {
+                const response = await fetch('/new_patient', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Display results
+                    document.getElementById('resultsCard').style.display = 'block';
+                    
+                    // Clear all transfer sections first
+                    document.getElementById('resourceIssues').innerHTML = '';
+                    document.getElementById('survivalMessage').innerHTML = '';
+                    document.getElementById('ambulanceInfo').innerHTML = '';
+                    document.getElementById('bestHospitalContainer').innerHTML = '';
+                    document.getElementById('nearbyHospitalsList').innerHTML = '';
+                    document.getElementById('nearbyGovt').innerHTML = '';
+                    document.getElementById('nearbyPrivate').innerHTML = '';
+                    document.getElementById('transferReason').innerHTML = '';
+                    document.getElementById('hospitalSelection').innerHTML = '';
+                    
+                    // Set risk badge with appropriate color
+                    const riskBadge = document.getElementById('riskBadge');
+                    let bgColor = 'secondary';
+                    if (data.risk_color === 'Black') bgColor = 'dark';
+                    else if (data.risk_color === 'Red') bgColor = 'danger';
+                    else if (data.risk_color === 'Yellow') bgColor = 'warning';
+                    else if (data.risk_color === 'Green') bgColor = 'success';
+                    
+                    riskBadge.innerHTML = `<span class="badge bg-${bgColor} p-3 fs-6">
+                        ${data.risk_level} (${data.risk_color} Zone)
+                    </span>`;
+                    
+                    document.getElementById('confidence').innerText = (data.confidence * 100).toFixed(1);
+                    document.getElementById('department').innerText = data.department;
+                    document.getElementById('decision').innerText = data.decision;
+                    document.getElementById('outcome').innerText = data.outcome;
+                    
+                    // Set explanation with TTS support
+                    document.getElementById('explanationText').innerText = data.explanation;
+                    document.getElementById('explanation').innerHTML = `
+                        <div class="tts-controls">
+                            <button class="btn btn-sm btn-primary tts-button" onclick="playExplanation()" id="explainPlayBtn">
+                                <i class="bi bi-play-circle"></i> Listen
+                            </button>
+                            <button class="btn btn-sm btn-danger tts-button" onclick="stopExplanation()" id="explainStopBtn" style="display: none;">
+                                <i class="bi bi-stop-circle"></i> Stop
+                            </button>
+                        </div>
+                        <i class="bi bi-info-circle"></i> <span id="explanationText">${data.explanation}</span>
+                    `;
+                    
+                    if (data.urgency) {
+                        document.getElementById('urgency').innerText = data.urgency;
+                    }
+                    
+                    // If transfer recommended, show nearby hospitals with details
+                    if (data.decision.toLowerCase().includes('transfer') || data.transfer_details) {
+                        document.getElementById('transferDetails').style.display = 'block';
+                        
+                        if (data.transfer_details) {
+                            // Display transfer reason
+                            document.getElementById('transferReason').innerHTML = 
+                                `<strong>Reason:</strong> ${data.transfer_details.reason || 'Better facilities available elsewhere'}`;
+                            
+                            // Display Resource Issues
+                            if (data.transfer_details.resource_issues && data.transfer_details.resource_issues.length > 0) {
+                                let issuesList = data.transfer_details.resource_issues.map(issue => 
+                                    `<li class="list-group-item list-group-item-danger">⚠️ ${issue}</li>`
+                                ).join('');
+                                document.getElementById('resourceIssues').innerHTML = `
+                                    <div class="alert alert-danger">
+                                        <h6 class="alert-heading"><i class="bi bi-exclamation-triangle"></i> Resource Shortage:</h6>
+                                        <ul class="list-group list-group-flush bg-transparent">
+                                            ${issuesList}
+                                        </ul>
+                                    </div>
+                                `;
+                            }
+                            
+                            // Display Survival Message
+                            if (data.transfer_details.survival_message) {
+                                const survivalColor = data.transfer_details.survival_color || 'warning';
+                                const survivalProb = data.transfer_details.transfer_risk?.survival_probability || 0.5;
+                                
+                                // Create survival meter
+                                const meterWidth = survivalProb * 100;
+                                let meterColor = 'bg-success';
+                                if (survivalProb < 0.4) meterColor = 'bg-danger';
+                                else if (survivalProb < 0.7) meterColor = 'bg-warning';
+                                
+                                document.getElementById('survivalMessage').innerHTML = `
+                                    <div class="alert alert-${survivalColor}">
+                                        <h6 class="alert-heading"><i class="bi bi-activity"></i> Transfer Risk Assessment:</h6>
+                                        <p>${data.transfer_details.survival_message}</p>
+                                        <div class="mt-2">
+                                            <small>Survival Probability:</small>
+                                            <div class="progress survival-progress" style="height: 10px;">
+                                                <div class="progress-bar ${meterColor}" role="progressbar" 
+                                                     style="width: ${meterWidth}%">${Math.round(survivalProb * 100)}%</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                            }
+                            
+                            // Display Ambulance Information
+                            if (data.transfer_details.ambulance_arrangement) {
+                                let ambulanceHtml = `
+                                    <div class="alert alert-info">
+                                        <h6 class="alert-heading"><i class="bi bi-truck"></i> Ambulance Arrangement:</h6>
+                                        <p>${data.transfer_details.ambulance_arrangement}</p>
+                                `;
+                                
+                                if (data.transfer_details.ambulance_status && !data.transfer_details.ambulance_status.any_available) {
+                                    ambulanceHtml += '<small class="text-danger">⚠️ No ambulance available at this hospital. External ambulance requested.</small>';
+                                }
+                                
+                                ambulanceHtml += '</div>';
+                                document.getElementById('ambulanceInfo').innerHTML = ambulanceHtml;
+                            }
+                            
+                            // ===== Hospital Selection UI =====
+                            if (data.transfer_details.show_selection) {
+                                let selectionHtml = `
+                                    <div class="card mt-4 border-primary">
+                                        <div class="card-header bg-primary text-white">
+                                            <h5 class="mb-0"><i class="bi bi-pin-map"></i> Select Transfer Hospital</h5>
+                                        </div>
+                                        <div class="card-body">
+                                            <p class="text-muted">Choose the best hospital based on location, capabilities, and survival probability:</p>
+                                `;
+                                
+                                // Show government hospitals
+                                if (data.transfer_details.govt_hospitals && data.transfer_details.govt_hospitals.length > 0) {
+                                    selectionHtml += `
+                                        <h6 class="mt-3 text-success"><i class="bi bi-building"></i> Government Hospitals</h6>
+                                        <div class="row">
+                                    `;
+                                    data.transfer_details.govt_hospitals.forEach(h => {
+                                        let riskColor = h.transfer_risk.risk_score > 0.7 ? 'danger' : (h.transfer_risk.risk_score > 0.4 ? 'warning' : 'success');
+                                        let riskText = h.transfer_risk.risk_score > 0.7 ? 'High Risk' : (h.transfer_risk.risk_score > 0.4 ? 'Moderate Risk' : 'Low Risk');
+                                        
+                                        selectionHtml += `
+                                            <div class="col-md-6 mb-3">
+                                                <div class="card h-100 hospital-card govt-hospital selection-card" onclick="selectTransferHospital(${h.id}, '${data.patient_id}')">
+                                                    <div class="card-body">
+                                                        <div class="d-flex justify-content-between align-items-start">
+                                                            <h6 class="card-title mb-1">${h.name}</h6>
+                                                            <span class="badge bg-success">${h.distance} km</span>
+                                                        </div>
+                                                        <p class="hospital-detail mb-2">${h.location || 'Location not specified'}</p>
+                                                        
+                                                        <div class="row small mb-2">
+                                                            <div class="col-6">
+                                                                <i class="bi bi-clock"></i> ETA: ${h.eta} min
+                                                            </div>
+                                                            <div class="col-6">
+                                                                <i class="bi bi-bed"></i> ${h.available_beds} beds
+                                                            </div>
+                                                            <div class="col-6">
+                                                                <i class="bi bi-person-badge"></i> ${h.doctors_available} doctors
+                                                            </div>
+                                                            <div class="col-6">
+                                                                ${h.has_icu ? '<span class="badge bg-danger">ICU</span>' : ''}
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <div class="progress survival-progress mb-2">
+                                                            <div class="progress-bar bg-${riskColor}" 
+                                                                 style="width: ${h.transfer_risk.survival_probability * 100}%"></div>
+                                                        </div>
+                                                        
+                                                        <div class="d-flex justify-content-between align-items-center">
+                                                            <small class="text-${riskColor}">
+                                                                <i class="bi bi-activity"></i> Survival: ${Math.round(h.transfer_risk.survival_probability * 100)}%
+                                                            </small>
+                                                            <span class="badge bg-${riskColor}">${riskText}</span>
+                                                        </div>
+                                                        
+                                                        <button class="btn btn-sm btn-outline-primary w-100 mt-2" 
+                                                                onclick="selectTransferHospital(${h.id}, '${data.patient_id}')">
+                                                            <i class="bi bi-check-circle"></i> Select This Hospital
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        `;
+                                    });
+                                    selectionHtml += `</div>`;
+                                }
+                                
+                                // Show private hospitals
+                                if (data.transfer_details.private_hospitals && data.transfer_details.private_hospitals.length > 0) {
+                                    selectionHtml += `
+                                        <h6 class="mt-4 text-info"><i class="bi bi-building"></i> Private Hospitals</h6>
+                                        <div class="row">
+                                    `;
+                                    data.transfer_details.private_hospitals.forEach(h => {
+                                        let riskColor = h.transfer_risk.risk_score > 0.7 ? 'danger' : (h.transfer_risk.risk_score > 0.4 ? 'warning' : 'success');
+                                        let riskText = h.transfer_risk.risk_score > 0.7 ? 'High Risk' : (h.transfer_risk.risk_score > 0.4 ? 'Moderate Risk' : 'Low Risk');
+                                        
+                                        selectionHtml += `
+                                            <div class="col-md-6 mb-3">
+                                                <div class="card h-100 hospital-card private-hospital selection-card" onclick="selectTransferHospital(${h.id}, '${data.patient_id}')">
+                                                    <div class="card-body">
+                                                        <div class="d-flex justify-content-between align-items-start">
+                                                            <h6 class="card-title mb-1">${h.name}</h6>
+                                                            <span class="badge bg-info">${h.distance} km</span>
+                                                        </div>
+                                                        <p class="hospital-detail mb-2">${h.location || 'Location not specified'}</p>
+                                                        
+                                                        <div class="row small mb-2">
+                                                            <div class="col-6">
+                                                                <i class="bi bi-clock"></i> ETA: ${h.eta} min
+                                                            </div>
+                                                            <div class="col-6">
+                                                                <i class="bi bi-bed"></i> ${h.available_beds} beds
+                                                            </div>
+                                                            <div class="col-6">
+                                                                <i class="bi bi-person-badge"></i> ${h.doctors_available} doctors
+                                                            </div>
+                                                            <div class="col-6">
+                                                                ${h.has_icu ? '<span class="badge bg-danger">ICU</span>' : ''}
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <div class="progress survival-progress mb-2">
+                                                            <div class="progress-bar bg-${riskColor}" 
+                                                                 style="width: ${h.transfer_risk.survival_probability * 100}%"></div>
+                                                        </div>
+                                                        
+                                                        <div class="d-flex justify-content-between align-items-center">
+                                                            <small class="text-${riskColor}">
+                                                                <i class="bi bi-activity"></i> Survival: ${Math.round(h.transfer_risk.survival_probability * 100)}%
+                                                            </small>
+                                                            <span class="badge bg-${riskColor}">${riskText}</span>
+                                                        </div>
+                                                        
+                                                        <button class="btn btn-sm btn-outline-primary w-100 mt-2" 
+                                                                onclick="selectTransferHospital(${h.id}, '${data.patient_id}')">
+                                                            <i class="bi bi-check-circle"></i> Select This Hospital
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        `;
+                                    });
+                                    selectionHtml += `</div>`;
+                                }
+                                
+                                // If no hospitals found
+                                if ((!data.transfer_details.govt_hospitals || data.transfer_details.govt_hospitals.length === 0) && 
+                                    (!data.transfer_details.private_hospitals || data.transfer_details.private_hospitals.length === 0)) {
+                                    selectionHtml += `
+                                        <div class="alert alert-warning">
+                                            <i class="bi bi-exclamation-triangle"></i> No suitable hospitals found nearby. Contact emergency services immediately.
+                                        </div>
+                                    `;
+                                }
+                                
+                                selectionHtml += `</div></div>`;
+                                document.getElementById('hospitalSelection').innerHTML = selectionHtml;
+                            }
+                            
+                            // Display Nearby Hospitals with Risk Scores
+                            if (data.transfer_details.nearby_hospitals && data.transfer_details.nearby_hospitals.length > 0) {
+                                let hospitalsList = '<div class="list-group mt-3">';
+                                data.transfer_details.nearby_hospitals.forEach((h, index) => {
+                                    let riskColor = 'success';
+                                    let riskText = 'Low Risk';
+                                    
+                                    if (h.transfer_risk) {
+                                        if (h.transfer_risk.risk_score > 0.7) {
+                                            riskColor = 'danger';
+                                            riskText = 'High Risk';
+                                        } else if (h.transfer_risk.risk_score > 0.4) {
+                                            riskColor = 'warning';
+                                            riskText = 'Moderate Risk';
+                                        }
+                                    }
+                                    
+                                    let isBest = index === 0 ? 'best-hospital' : '';
+                                    let bgClass = h.type === 'government' ? 'govt-hospital' : 'private-hospital';
+                                    
+                                    hospitalsList += `
+                                        <div class="hospital-card ${bgClass} ${isBest}">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <strong>${h.name}</strong> 
+                                                    <span class="badge bg-${h.type === 'government' ? 'success' : 'info'}">${h.type}</span>
+                                                    ${index === 0 ? '<span class="badge bg-warning">Best Option</span>' : ''}
+                                                </div>
+                                                <span class="badge bg-${riskColor}">${riskText}</span>
+                                            </div>
+                                            <div class="row mt-2">
+                                                <div class="col-3">
+                                                    <small><i class="bi bi-geo-alt"></i> ${h.distance}km</small>
+                                                </div>
+                                                <div class="col-3">
+                                                    <small><i class="bi bi-clock"></i> ${h.eta} mins</small>
+                                                </div>
+                                                <div class="col-3">
+                                                    <small><i class="bi bi-bed"></i> ${h.available_beds} beds</small>
+                                                </div>
+                                                <div class="col-3">
+                                                    <small><i class="bi bi-person-badge"></i> ${h.doctors_available} doctors</small>
+                                                </div>
+                                            </div>
+                                            <div class="row">
+                                                <div class="col-6">
+                                                    <small><i class="bi bi-telephone"></i> ${h.contact}</small>
+                                                </div>
+                                                <div class="col-6 text-end">
+                                                    ${h.has_icu ? '<span class="badge bg-danger"><i class="bi bi-heart-pulse"></i> ICU</span>' : ''}
+                                                </div>
+                                            </div>
+                                            ${h.transfer_risk ? `
+                                                <div class="mt-2 small text-muted">
+                                                    Survival: ${Math.round(h.transfer_risk.survival_probability * 100)}% | 
+                                                    Risk: ${Math.round(h.transfer_risk.risk_score * 100)}%
+                                                </div>
+                                            ` : ''}
+                                        </div>
+                                    `;
+                                });
+                                hospitalsList += '</div>';
+                                document.getElementById('nearbyHospitalsList').innerHTML = hospitalsList;
+                            }
+                            
+                            // Separate government and private hospitals
+                            if (data.transfer_details.nearby_hospitals) {
+                                const hospitals = data.transfer_details.nearby_hospitals;
+                                const govtHospitals = hospitals.filter(h => h.type === 'government');
+                                const privateHospitals = hospitals.filter(h => h.type === 'private');
+                                
+                                // Display government hospitals
+                                let govtHtml = '';
+                                if (govtHospitals.length > 0) {
+                                    govtHospitals.slice(0,3).forEach(h => {
+                                        govtHtml += `
+                                            <div class="hospital-card govt-hospital">
+                                                <div class="d-flex justify-content-between">
+                                                    <strong>${h.name}</strong>
+                                                    <span class="badge bg-success">${h.type}</span>
+                                                </div>
+                                                <small>
+                                                    <i class="bi bi-geo-alt"></i> ${h.distance}km (${h.eta} mins)<br>
+                                                    <i class="bi bi-bed"></i> ${h.available_beds} beds |
+                                                    <i class="bi bi-person-badge"></i> ${h.doctors_available} doctors
+                                                </small><br>
+                                                <small class="text-muted">
+                                                    <i class="bi bi-telephone"></i> ${h.contact}
+                                                </small>
+                                            </div>
+                                        `;
+                                    });
+                                } else {
+                                    govtHtml = '<p class="text-muted text-center py-3">No government hospitals nearby</p>';
+                                }
+                                document.getElementById('nearbyGovt').innerHTML = govtHtml;
+                                
+                                // Display private hospitals
+                                let privateHtml = '';
+                                if (privateHospitals.length > 0) {
+                                    privateHospitals.slice(0,3).forEach(h => {
+                                        privateHtml += `
+                                            <div class="hospital-card private-hospital">
+                                                <div class="d-flex justify-content-between">
+                                                    <strong>${h.name}</strong>
+                                                    <span class="badge bg-info">${h.type}</span>
+                                                </div>
+                                                <small>
+                                                    <i class="bi bi-geo-alt"></i> ${h.distance}km (${h.eta} mins)<br>
+                                                    <i class="bi bi-bed"></i> ${h.available_beds} beds |
+                                                    <i class="bi bi-person-badge"></i> ${h.doctors_available} doctors
+                                                </small><br>
+                                                <small class="text-muted">
+                                                    <i class="bi bi-telephone"></i> ${h.contact}
+                                                </small>
+                                            </div>
+                                        `;
+                                    });
+                                } else {
+                                    privateHtml = '<p class="text-muted text-center py-3">No private hospitals nearby</p>';
+                                }
+                                document.getElementById('nearbyPrivate').innerHTML = privateHtml;
+                                
+                                // Display best hospital recommendation
+                                if (data.transfer_details.recommended_hospital) {
+                                    const best = data.transfer_details.recommended_hospital;
+                                    let riskBadge = 'success';
+                                    let riskText = 'Safe';
+                                    if (best.transfer_risk) {
+                                        if (best.transfer_risk.risk_score > 0.7) {
+                                            riskBadge = 'danger';
+                                            riskText = 'High Risk';
+                                        } else if (best.transfer_risk.risk_score > 0.4) {
+                                            riskBadge = 'warning';
+                                            riskText = 'Moderate Risk';
+                                        }
+                                    }
+                                    
+                                    document.getElementById('bestHospitalContainer').innerHTML = `
+                                        <div class="alert alert-success best-hospital">
+                                            <h6 class="alert-heading"><i class="bi bi-trophy-fill"></i> Best Recommended Hospital</h6>
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <strong>${best.name}</strong> 
+                                                    <span class="badge bg-${best.type === 'government' ? 'success' : 'info'}">${best.type}</span>
+                                                </div>
+                                                <span class="badge bg-${riskBadge}">${riskText}</span>
+                                            </div>
+                                            <div class="row mt-2">
+                                                <div class="col-3">
+                                                    <small><i class="bi bi-geo-alt"></i> ${best.distance}km</small>
+                                                </div>
+                                                <div class="col-3">
+                                                    <small><i class="bi bi-clock"></i> ${best.eta} mins</small>
+                                                </div>
+                                                <div class="col-3">
+                                                    <small><i class="bi bi-bed"></i> ${best.available_beds} beds</small>
+                                                </div>
+                                                <div class="col-3">
+                                                    <small><i class="bi bi-person-badge"></i> ${best.doctors_available} doctors</small>
+                                                </div>
+                                            </div>
+                                            ${best.transfer_risk ? `
+                                                <div class="mt-2 small">
+                                                    Survival Probability: ${Math.round(best.transfer_risk.survival_probability * 100)}% | 
+                                                    Transfer Risk: ${Math.round(best.transfer_risk.risk_score * 100)}%
+                                                </div>
+                                            ` : ''}
+                                            ${best.has_icu ? '<span class="badge bg-danger mt-2"><i class="bi bi-heart-pulse"></i> ICU Available</span>' : ''}
+                                            <div class="mt-2">
+                                                <small><i class="bi bi-telephone"></i> ${best.contact}</small>
+                                            </div>
+                                        </div>
+                                    `;
+                                }
+                            }
+                        }
+                        
+                        // Also load nearby hospitals from the existing endpoint as backup
+                        await loadNearbyHospitals(data.patient_id);
+                    } else {
+                        document.getElementById('transferDetails').style.display = 'none';
+                    }
+                    
+                    // Scroll to results
+                    document.getElementById('resultsCard').scrollIntoView({ behavior: 'smooth' });
+                    
+                    // Show success message
+                    showFlashMessage('Patient triage completed successfully!', 'success');
+                } else {
+                    showFlashMessage('Error processing patient: ' + (data.error || 'Unknown error'), 'danger');
+                }
+            } catch (error) {
+                showFlashMessage('Error processing patient: ' + error.message, 'danger');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="bi bi-shield-check"></i> Run Triage Assessment';
+            }
+        }
+
+        async function loadNearbyHospitals(patientId) {
+            try {
+                const response = await fetch(`/api/nearby_hospitals/${patientId}`);
+                const data = await response.json();
+                
+                // This is a backup display - only show if main display is empty
+                if (data.all && data.all.length > 0 && !document.getElementById('nearbyGovt').innerHTML) {
+                    // Display government hospitals
+                    if (data.government && data.government.length > 0) {
+                        let govtHtml = '';
+                        data.government.forEach(h => {
+                            govtHtml += `
+                                <div class="hospital-card govt-hospital">
+                                    <strong>${h.name}</strong><br>
+                                    <small>
+                                        <i class="bi bi-geo-alt"></i> ${h.distance}km |
+                                        <i class="bi bi-bed"></i> ${h.available_beds} beds
+                                    </small>
+                                </div>
+                            `;
+                        });
+                        document.getElementById('nearbyGovt').innerHTML = govtHtml;
+                    }
+                    
+                    // Display private hospitals
+                    if (data.private && data.private.length > 0) {
+                        let privateHtml = '';
+                        data.private.forEach(h => {
+                            privateHtml += `
+                                <div class="hospital-card private-hospital">
+                                    <strong>${h.name}</strong><br>
+                                    <small>
+                                        <i class="bi bi-geo-alt"></i> ${h.distance}km |
+                                        <i class="bi bi-bed"></i> ${h.available_beds} beds
+                                    </small>
+                                </div>
+                            `;
+                        });
+                        document.getElementById('nearbyPrivate').innerHTML = privateHtml;
+                    }
+                    
+                    // Display best hospital
+                    if (data.best) {
+                        const best = data.best;
+                        document.getElementById('bestHospitalContainer').innerHTML = `
+                            <div class="alert alert-info">
+                                <strong>🏥 Nearest Option:</strong> ${best.name} (${best.distance}km)
+                            </div>
+                        `;
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading nearby hospitals:', error);
+            }
+        }
+
+        async function uploadEHR() {
+            const fileInput = document.getElementById('ehr_file');
+            if (!fileInput.files[0]) {
+                showFlashMessage('Please select a file first', 'warning');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', fileInput.files[0]);
+
+            const uploadBtn = event.target;
+            const originalText = uploadBtn.innerHTML;
+            uploadBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Parsing...';
+            uploadBtn.disabled = true;
+
+            try {
+                const response = await fetch('/upload_ehr', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                // Auto-fill form with extracted data
+                if (data.name) document.getElementById('name').value = data.name;
+                if (data.age) document.getElementById('age').value = data.age;
+                if (data.gender) document.getElementById('gender').value = data.gender;
+                if (data.symptoms) document.getElementById('symptoms').value = data.symptoms;
+                if (data.blood_pressure) document.getElementById('blood_pressure').value = data.blood_pressure;
+                if (data.heart_rate) document.getElementById('heart_rate').value = data.heart_rate;
+                if (data.temperature) document.getElementById('temperature').value = data.temperature;
+                if (data.pre_conditions) document.getElementById('pre_conditions').value = data.pre_conditions;
+                
+                showFlashMessage('EHR data loaded successfully!', 'success');
+            } catch (error) {
+                showFlashMessage('Error parsing EHR: ' + error.message, 'danger');
+            } finally {
+                uploadBtn.innerHTML = originalText;
+                uploadBtn.disabled = false;
+            }
+        }
+
+        function showFlashMessage(message, type) {
+            const flashDiv = document.getElementById('flashMessages');
+            flashDiv.innerHTML = `
+                <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                    <i class="bi bi-${type === 'success' ? 'check-circle' : 'exclamation-triangle'}"></i>
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            `;
+            
+            // Auto dismiss after 5 seconds
+            setTimeout(() => {
+                flashDiv.innerHTML = '';
+            }, 5000);
+        }
+
+        // Add input validation for blood pressure
+        document.getElementById('blood_pressure').addEventListener('input', function(e) {
+            const value = e.target.value;
+            const pattern = /^\d{2,3}\/\d{2,3}$/;
+            if (!pattern.test(value) && value.length > 0) {
+                e.target.setCustomValidity('Please enter in format: systolic/diastolic (e.g., 120/80)');
+            } else {
+                e.target.setCustomValidity('');
+            }
+        });
+
+        // Add keyboard shortcut for voice input (Ctrl+Shift+V)
+        document.addEventListener('keydown', function(e) {
+            if (e.ctrlKey && e.shiftKey && e.key === 'V') {
+                e.preventDefault();
+                startVoiceInput();
+            }
+        });
+    </script>
+</body>
+</html>

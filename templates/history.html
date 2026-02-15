@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient History - CareInsight AI</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+    <style>
+        .sort-btn {
+            transition: all 0.3s;
+            margin-right: 5px;
+        }
+        .sort-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: transparent;
+        }
+        .sort-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+        .filter-badge {
+            cursor: pointer;
+            transition: all 0.3s;
+            padding: 8px 15px !important;
+            font-size: 0.9rem;
+        }
+        .filter-badge:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        .stats-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: 500;
+            white-space: nowrap;
+        }
+        .table td {
+            vertical-align: middle;
+        }
+        .risk-badge {
+            font-size: 0.9rem;
+            padding: 8px 12px;
+            border-radius: 20px;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px;
+            color: #6c757d;
+        }
+        .empty-state i {
+            font-size: 5rem;
+            margin-bottom: 20px;
+            color: #dee2e6;
+        }
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: inline-block;
+        }
+        .admitted-badge {
+            background-color: #28a745;
+            color: white;
+        }
+        .discharged-badge {
+            background-color: #6c757d;
+            color: white;
+        }
+        .transferred-badge {
+            background-color: #ffc107;
+            color: #000;
+        }
+        .bed-info {
+            font-size: 0.8rem;
+            color: #6c757d;
+            margin-top: 3px;
+        }
+        .summary-card {
+            border-left: 4px solid;
+            transition: transform 0.3s;
+        }
+        .summary-card:hover {
+            transform: translateY(-5px);
+        }
+        .search-box {
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 8px 15px;
+            transition: all 0.3s;
+        }
+        .search-box:focus {
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+            outline: none;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="/dashboard">
+                <i class="bi bi-heart-pulse"></i> CareInsight AI
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <span class="nav-link">
+                            <i class="bi bi-building"></i> {{ hospital.hospital_name }}
+                        </span>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/dashboard">
+                            <i class="bi bi-speedometer2"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/hospital_profile">
+                            <i class="bi bi-person-circle"></i> Profile
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/logout">
+                            <i class="bi bi-box-arrow-right"></i> Logout
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        <!-- Header with Stats -->
+        <div class="stats-card">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <h2 class="mb-0"><i class="bi bi-clock-history"></i> Patient History</h2>
+                    <p class="mb-0 opacity-75">Last 3 months • Total Patients: {{ patients|length }}</p>
+                </div>
+                <div class="col-md-6 text-end">
+                    <span class="badge bg-light text-dark p-3" id="currentDateTime">
+                        <i class="bi bi-calendar"></i> Loading...
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sort and Filter Options -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0"><i class="bi bi-funnel"></i> Sort & Filter Options</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <!-- Date Sorting -->
+                    <div class="col-md-4 mb-3">
+                        <h6 class="fw-bold"><i class="bi bi-calendar"></i> Sort by Date</h6>
+                        <div class="btn-group" role="group">
+                            <a href="/patient_history?sort=date_desc" class="btn btn-outline-primary sort-btn {% if sort_by == 'date_desc' %}active{% endif %}">
+                                <i class="bi bi-sort-down"></i> Newest
+                            </a>
+                            <a href="/patient_history?sort=date_asc" class="btn btn-outline-primary sort-btn {% if sort_by == 'date_asc' %}active{% endif %}">
+                                <i class="bi bi-sort-up"></i> Oldest
+                            </a>
+                        </div>
+                    </div>
+                    
+                    <!-- Time Sorting -->
+                    <div class="col-md-4 mb-3">
+                        <h6 class="fw-bold"><i class="bi bi-clock"></i> Sort by Time</h6>
+                        <div class="btn-group" role="group">
+                            <a href="/patient_history?sort=time_desc" class="btn btn-outline-info sort-btn {% if sort_by == 'time_desc' %}active{% endif %}">
+                                <i class="bi bi-clock-history"></i> Latest
+                            </a>
+                            <a href="/patient_history?sort=time_asc" class="btn btn-outline-info sort-btn {% if sort_by == 'time_asc' %}active{% endif %}">
+                                <i class="bi bi-clock"></i> Earliest
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Status Filter -->
+                    <div class="col-md-4 mb-3">
+                        <h6 class="fw-bold"><i class="bi bi-person-check"></i> Filter by Status</h6>
+                        <div class="btn-group" role="group">
+                            <a href="/patient_history?status=admitted" class="btn btn-outline-success sort-btn {% if request.args.get('status') == 'admitted' %}active{% endif %}">
+                                <i class="bi bi-person-check"></i> Admitted
+                            </a>
+                            <a href="/patient_history?status=discharged" class="btn btn-outline-secondary sort-btn {% if request.args.get('status') == 'discharged' %}active{% endif %}">
+                                <i class="bi bi-person-check"></i> Discharged
+                            </a>
+                            <a href="/patient_history?status=all" class="btn btn-outline-info sort-btn {% if request.args.get('status') == 'all' or not request.args.get('status') %}active{% endif %}">
+                                <i class="bi bi-people"></i> All
+                            </a>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Risk Filter Badges -->
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <h6 class="fw-bold"><i class="bi bi-tags"></i> Filter by Risk</h6>
+                        <span class="badge bg-dark filter-badge me-2" onclick="filterRisk('critical')">Critical ⚫</span>
+                        <span class="badge bg-danger filter-badge me-2" onclick="filterRisk('high')">High 🔴</span>
+                        <span class="badge bg-warning text-dark filter-badge me-2" onclick="filterRisk('medium')">Medium 🟡</span>
+                        <span class="badge bg-success filter-badge me-2" onclick="filterRisk('low')">Low 🟢</span>
+                        <span class="badge bg-info filter-badge me-2" onclick="filterRisk('all')">All</span>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="fw-bold"><i class="bi bi-search"></i> Quick Search</h6>
+                        <input type="text" class="form-control search-box" id="searchInput" placeholder="Search by patient name or ID..." onkeyup="searchTable()">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Patient History Table -->
+        <div class="card">
+            <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-table"></i> Patient Records</h5>
+                <span class="badge bg-light text-dark">{{ patients|length }} Records Found</span>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle" id="patientTable">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Time (IST)</th>
+                                <th>Patient ID</th>
+                                <th>Name</th>
+                                <th>Age/Gender</th>
+                                <th>Risk Level</th>
+                                <th>Department</th>
+                                <th>Decision</th>
+                                <th>Status</th>
+                                <th>Outcome</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if patients %}
+                                {% for patient in patients %}
+                                <tr>
+                                    <td>{{ patient.created_at.strftime('%d-%m-%Y') }}</td>
+                                    <td><small>{{ patient.created_at.strftime('%I:%M %p') }}</small></td>
+                                    <td><code>{{ patient.patient_id }}</code></td>
+                                    <td>
+                                        {{ patient.name or 'Unknown' }}
+                                        {% if patient.bed_number and patient.is_admitted %}
+                                            <br><small class="bed-info"><i class="bi bi-bed"></i> Bed #{{ patient.bed_number }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ patient.age }}/{{ patient.gender }}</td>
+                                    <td>
+                                        <span class="badge risk-badge bg-{% if patient.risk_color == 'Black' %}dark{% elif patient.risk_color == 'Red' %}danger{% elif patient.risk_color == 'Yellow' %}warning text-dark{% else %}success{% endif %}">
+                                            {{ patient.risk_level }} ({{ patient.risk_color }})
+                                        </span>
+                                    </td>
+                                    <td>{{ patient.recommended_department }}</td>
+                                    <td>
+                                        {% if 'Transfer' in patient.treatment_decision %}
+                                            <span class="badge bg-warning text-dark"><i class="bi bi-truck"></i> Transfer</span>
+                                            {% if patient.transferred_to %}
+                                                <br><small class="text-muted">to {{ patient.transferred_to }}</small>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="badge bg-success"><i class="bi bi-check-circle"></i> Treat Local</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if patient.is_admitted and not patient.discharge_date %}
+                                            <span class="status-badge admitted-badge">
+                                                <i class="bi bi-person-check"></i> Admitted
+                                            </span>
+                                        {% elif patient.discharge_date %}
+                                            <span class="status-badge discharged-badge">
+                                                <i class="bi bi-person-check"></i> Discharged
+                                            </span>
+                                        {% elif 'Transfer' in patient.treatment_decision %}
+                                            <span class="status-badge transferred-badge">
+                                                <i class="bi bi-truck"></i> Transferred
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">OPD</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if patient.outcome %}
+                                            <span class="badge bg-{% if 'Died' in patient.outcome %}danger{% elif 'ICU' in patient.outcome %}danger{% elif 'Emergency' in patient.outcome %}warning{% elif 'Discharged' in patient.outcome %}success{% else %}info{% endif %} p-2">
+                                                {{ patient.outcome }}
+                                            </span>
+                                        {% endif %}
+                                        {% if patient.expected_discharge and patient.is_admitted %}
+                                            <br><small class="text-muted">Exp: {{ patient.expected_discharge.strftime('%d/%m %H:%M') }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="/patient/{{ patient.patient_id }}" class="btn btn-outline-primary" title="View Details">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            {% if patient.is_admitted and not patient.discharge_date %}
+                                                <button class="btn btn-outline-success" onclick="quickDischarge('{{ patient.patient_id }}')" title="Quick Discharge">
+                                                    <i class="bi bi-check-circle"></i>
+                                                </button>
+                                            {% endif %}
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="11" class="text-center py-5 empty-state">
+                                        <i class="bi bi-inbox"></i>
+                                        <h5 class="mt-3">No Patients Found</h5>
+                                        <p class="text-muted">There are no patient records for the selected period.</p>
+                                        <a href="/new_patient" class="btn btn-primary mt-3">
+                                            <i class="bi bi-plus-circle"></i> Add New Patient
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Enhanced Summary Section -->
+                {% if patients %}
+                <div class="row mt-4">
+                    <div class="col-md-3">
+                        <div class="card bg-light summary-card" style="border-left-color: #6610f2;">
+                            <div class="card-body">
+                                <h6 class="card-title"><i class="bi bi-bar-chart"></i> Risk Summary</h6>
+                                {% set critical = patients|selectattr('risk_level', 'equalto', 'Critical')|list|length %}
+                                {% set high = patients|selectattr('risk_level', 'equalto', 'High')|list|length %}
+                                {% set medium = patients|selectattr('risk_level', 'equalto', 'Medium')|list|length %}
+                                {% set low = patients|selectattr('risk_level', 'equalto', 'Low')|list|length %}
+                                <div class="mt-2">
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span>⚫ Critical</span>
+                                        <span class="badge bg-dark">{{ critical }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span>🔴 High</span>
+                                        <span class="badge bg-danger">{{ high }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span>🟡 Medium</span>
+                                        <span class="badge bg-warning text-dark">{{ medium }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span>🟢 Low</span>
+                                        <span class="badge bg-success">{{ low }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light summary-card" style="border-left-color: #fd7e14;">
+                            <div class="card-body">
+                                <h6 class="card-title"><i class="bi bi-truck"></i> Transfer Summary</h6>
+                                {% set transfers = patients|selectattr('treatment_decision', 'equalto', 'Transfer Required')|list|length %}
+                                {% set local = patients|selectattr('treatment_decision', 'equalto', 'Treat Local')|list|length %}
+                                <div class="mt-2">
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span>🚑 Transferred</span>
+                                        <span class="badge bg-warning">{{ transfers }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span>🏥 Local</span>
+                                        <span class="badge bg-success">{{ local }}</span>
+                                    </div>
+                                    <div class="progress mt-2" style="height: 5px;">
+                                        <div class="progress-bar bg-warning" style="width: {{ (transfers/patients|length*100) if patients|length > 0 else 0 }}%"></div>
+                                        <div class="progress-bar bg-success" style="width: {{ (local/patients|length*100) if patients|length > 0 else 0 }}%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light summary-card" style="border-left-color: #0dcaf0;">
+                            <div class="card-body">
+                                <h6 class="card-title"><i class="bi bi-activity"></i> Outcome Summary</h6>
+                                {% set discharged = patients|selectattr('outcome', 'equalto', 'Discharged')|list|length %}
+                                {% set admitted = patients|selectattr('outcome', 'in', ['ICU Admission', 'Emergency Admission', 'Ward Admission'])|list|length %}
+                                {% set icu = patients|selectattr('outcome', 'equalto', 'ICU Admission')|list|length %}
+                                <div class="mt-2">
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span>✅ Discharged</span>
+                                        <span class="badge bg-success">{{ discharged }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span>🏥 Admitted</span>
+                                        <span class="badge bg-info">{{ admitted }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span>⚠️ ICU</span>
+                                        <span class="badge bg-danger">{{ icu }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card bg-light summary-card" style="border-left-color: #198754;">
+                            <div class="card-body">
+                                <h6 class="card-title"><i class="bi bi-bed"></i> Bed Occupancy</h6>
+                                {% set current_admitted = patients|selectattr('is_admitted', 'equalto', true)|list|length %}
+                                {% set total_beds = hospital.total_beds or 0 %}
+                                {% set occupancy_percent = (current_admitted / total_beds * 100) if total_beds > 0 else 0 %}
+                                <div class="mt-2">
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span>🛏️ Currently Admitted</span>
+                                        <span class="badge bg-primary">{{ current_admitted }}</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between mb-1">
+                                        <span>🛏️ Total Beds</span>
+                                        <span class="badge bg-secondary">{{ total_beds }}</span>
+                                    </div>
+                                    <div class="progress mt-2" style="height: 10px;">
+                                        <div class="progress-bar {% if occupancy_percent < 50 %}bg-success{% elif occupancy_percent < 80 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                             style="width: {{ occupancy_percent }}%">
+                                            {{ occupancy_percent|round(1) }}%
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Filter by risk level
+        function filterRisk(risk) {
+            let url = '/patient_history?';
+            let params = new URLSearchParams(window.location.search);
+            
+            if (risk === 'all') {
+                params.delete('risk');
+            } else {
+                params.set('risk', risk);
+            }
+            
+            // Preserve sort parameter
+            if (params.has('sort')) {
+                url += 'sort=' + params.get('sort') + '&';
+            }
+            
+            if (risk !== 'all') {
+                url += 'risk=' + risk;
+            }
+            
+            window.location.href = url;
+        }
+
+        // Search table function
+        function searchTable() {
+            const input = document.getElementById('searchInput');
+            const filter = input.value.toUpperCase();
+            const table = document.getElementById('patientTable');
+            const tr = table.getElementsByTagName('tr');
+
+            for (let i = 1; i < tr.length; i++) {
+                const tdId = tr[i].getElementsByTagName('td')[2]; // Patient ID column
+                const tdName = tr[i].getElementsByTagName('td')[3]; // Name column
+                
+                if (tdId || tdName) {
+                    const idValue = tdId.textContent || tdId.innerText;
+                    const nameValue = tdName.textContent || tdName.innerText;
+                    
+                    if (idValue.toUpperCase().indexOf(filter) > -1 || nameValue.toUpperCase().indexOf(filter) > -1) {
+                        tr[i].style.display = '';
+                    } else {
+                        tr[i].style.display = 'none';
+                    }
+                }
+            }
+        }
+
+        // Quick discharge function
+        function quickDischarge(patientId) {
+            if (!confirm('Are you sure you want to discharge this patient? This will free up a bed.')) {
+                return;
+            }
+            
+            fetch(`/discharge_patient/${patientId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message);
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('Error discharging patient: ' + error.message);
+            });
+        }
+
+        // Update date and time
+        function updateDateTime() {
+    const now = new Date();
+    
+    // Formatting options for Date
+    const dateOptions = { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        timeZone: 'Asia/Kolkata' // Forces Indian Standard Time
+    };
+
+    // Formatting options for Time
+    const timeOptions = { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit', 
+        hour12: true,
+        timeZone: 'Asia/Kolkata' // Forces Indian Standard Time
+    };
+    
+    const dateElement = document.getElementById('currentDateTime');
+    if (dateElement) {
+        const istDate = now.toLocaleDateString('en-IN', dateOptions);
+        const istTime = now.toLocaleTimeString('en-IN', timeOptions);
+        
+        dateElement.innerHTML = `
+            <i class="bi bi-calendar"></i> ${istDate}
+            <br><small><i class="bi bi-clock"></i> ${istTime} IST</small>
+        `;
+    }
+}
+
+// Call it immediately and then every second
+updateDateTime();
+setInterval(updateDateTime, 1000);
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Ctrl+F for search (focus search box)
+            if (e.ctrlKey && e.key === 'f') {
+                e.preventDefault();
+                document.getElementById('searchInput').focus();
+            }
+            
+            // Ctrl+P for print
+            if (e.ctrlKey && e.key === 'p') {
+                e.preventDefault();
+                window.print();
+            }
+            
+            // Ctrl+R to reset filters
+            if (e.ctrlKey && e.key === 'r') {
+                e.preventDefault();
+                window.location.href = '/patient_history';
+            }
+        });
+
+        // Add tooltips
+        document.querySelectorAll('[title]').forEach(element => {
+            new bootstrap.Tooltip(element);
+        });
+    </script>
+</body>
+</html>
